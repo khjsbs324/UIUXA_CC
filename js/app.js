@@ -1,44 +1,4 @@
-    let initializeApp = null;
-    let getAuth = null;
-    let signInAnonymously = null;
-    let onAuthStateChanged = null;
-    let getFirestore = null;
-    let doc = null;
-    let setDoc = null;
-    let onSnapshot = null;
-    let app = null; let auth = null; let db = null;
-    let firebaseModulesPromise = null;
-    const fc = {
-        apiKey: "AIzaSyDrYbVeQx7uEYjyBVaolJ4_UwyLYkZ8RNk",
-        authDomain: "uiuxa-771e9.firebaseapp.com",
-        projectId: "uiuxa-771e9",
-        storageBucket: "uiuxa-771e9.firebasestorage.app",
-        messagingSenderId: "1099220914447",
-        appId: "1:1099220914447:web:5ea11d41a19c39a0cdee7a",
-        measurementId: "G-WSZBG27G5Z"
-    };
 
-    async function initFirebaseModules() {
-        if (app || fc.apiKey === "여기에_API_KEY_입력") return;
-        if (!firebaseModulesPromise) {
-            firebaseModulesPromise = (async () => {
-                try {
-                    ({ initializeApp } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"));
-                    ({ getAuth, signInAnonymously, onAuthStateChanged } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"));
-                    ({ getFirestore, doc, setDoc, onSnapshot } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"));
-                    app = initializeApp(fc);
-                    auth = getAuth(app);
-                    db = getFirestore(app);
-                } catch (e) {
-                    console.warn("Firebase 모듈을 불러오지 못해 로컬 데이터로 실행합니다.", e);
-                    app = null;
-                    auth = null;
-                    db = null;
-                }
-            })();
-        }
-        await firebaseModulesPromise;
-    }
 
     const defaultUnitSchedules = [
         {id:'us_1',title:'구현',startDate:'2026-05-21',endDate:'2026-06-12',status:'예정',color:'slate'},
@@ -92,7 +52,6 @@
     let scheduleData = [{id:'sch_1',date:'2026-05-20',title:'개강일',color:'indigo',noticeId:'',toolCardId:'',memoContent:''}];
     let dateData = {};
 
-    const FIREBASE_COLLECTION = 'uiux_dashboard';
     const REMOTE_ROW_ID = 'shared_state';
     const LOCAL_STORAGE_KEYS = {
         menuOrder: ['menuOrder_v1', 'menuOrder'],
@@ -159,23 +118,6 @@
         if (state.boardData) boardData = state.boardData;
     }
 
-    function toFirebaseDocument(state) {
-        return {
-            menuOrder: state.menuOrder,
-            notice: state.noticeData,
-            memo: state.memoData,
-            designFilters: state.designFilters,
-            progress: state.progressData,
-            tool: state.toolData,
-            roadmap: state.roadmapData,
-            workspace: state.workspaceData,
-            studentComments: state.studentComments,
-            schedule: state.scheduleData,
-            dateLink: state.dateData,
-            board: state.boardData,
-            lastUpdated: Date.now()
-        };
-    }
 
     function getStoredJson(keys) {
         for (const key of keys) {
@@ -1616,45 +1558,34 @@
         menuOrder.forEach(id => { const e = document.getElementById('btn-' + id); if (e) c.appendChild(e); });
     };
 
-    window.saveAppState = async function() {
-        const state = getStateSnapshot();
+window.saveAppState = async function() {
+    const state = getStateSnapshot();
 
-        try {
-            if (await saveStateToNetlify(state)) {
-                saveStateToLocal(state);
-                return;
-            }
-        } catch (e) {
-            if (!isExpectedLocalNetlifyMiss(e)) {
-                console.warn("Netlify API 저장 실패, 기존 저장 방식으로 전환합니다.", e);
-            }
-        }
-
-        try {
-            if (await saveStateToSupabase(state)) {
-                saveStateToLocal(state);
-                return;
-            }
-        } catch (e) {
-            console.warn("Supabase 저장 실패, 기존 저장 방식으로 전환합니다.", e);
-        }
-
-        if (db && auth && auth.currentUser) {
-            const r = doc(db, FIREBASE_COLLECTION, REMOTE_ROW_ID);
-            try {
-                await setDoc(r, toFirebaseDocument(state));
-                setCloudStatus('클라우드 연동됨', 'text-emerald-500');
-            } catch (e) {
-                console.error("클라우드 저장 실패", e);
-                saveStateToLocal(state);
-                setCloudStatus('로컬 저장 중', 'text-amber-500');
-            }
-        } else {
+    try {
+        if (await saveStateToNetlify(state)) {
             saveStateToLocal(state);
+            return;
         }
-    };
+    } catch (e) {
+        if (!isExpectedLocalNetlifyMiss(e)) {
+            console.warn("Netlify API 저장 실패, 로컬 저장으로 전환합니다.", e);
+        }
+    }
 
-    window.saveToFirebase = window.saveAppState;
+    try {
+        if (await saveStateToSupabase(state)) {
+            saveStateToLocal(state);
+            return;
+        }
+    } catch (e) {
+        console.warn("Supabase 저장 실패, 로컬 저장으로 전환합니다.", e);
+    }
+
+    saveStateToLocal(state);
+    setCloudStatus('로컬 저장 중', 'text-amber-500');
+};
+
+window.saveToFirebase = window.saveAppState;
 
     window.forceDataSync = function() {
         const CURRENT_VER = "ver_0521_final_update_v3";
@@ -1683,69 +1614,41 @@
         window.forceDataSync(); window.updateDesignFilterSelects(); window.renderAll();
     };
 
-    window.initFirebaseAndLoad = async function() {
-        try {
-            const netlifyState = await loadStateFromNetlify();
-            if (netlifyState) {
-                applyStateSnapshot(netlifyState);
-                saveStateToLocal(getStateSnapshot());
-                window.forceDataSync();
-                window.updateDesignFilterSelects();
-                window.renderAll();
-                setCloudStatus('Netlify API 연동됨', 'text-sky-500');
-                return;
-            }
-        } catch (e) {
-            if (!isExpectedLocalNetlifyMiss(e)) {
-                console.warn("Netlify API 로드 실패, 기존 저장소로 전환합니다.", e);
-            }
+window.initFirebaseAndLoad = async function() {
+    try {
+        const netlifyState = await loadStateFromNetlify();
+        if (netlifyState) {
+            applyStateSnapshot(netlifyState);
+            saveStateToLocal(getStateSnapshot());
+            window.forceDataSync();
+            window.updateDesignFilterSelects();
+            window.renderAll();
+            setCloudStatus('Netlify API 연동됨', 'text-sky-500');
+            return;
         }
+    } catch (e) {
+        if (!isExpectedLocalNetlifyMiss(e)) {
+            console.warn("Netlify API 로드 실패, 로컬 저장소로 전환합니다.", e);
+        }
+    }
 
-        try {
-            const supabaseState = await loadStateFromSupabase();
-            if (supabaseState) {
-                applyStateSnapshot(supabaseState);
-                saveStateToLocal(getStateSnapshot());
-                window.forceDataSync();
-                window.updateDesignFilterSelects();
-                window.renderAll();
-                setCloudStatus('Supabase 연동됨', 'text-sky-500');
-                return;
-            }
-        } catch (e) {
-            console.warn("Supabase 로드 실패, 기존 저장소로 전환합니다.", e);
+    try {
+        const supabaseState = await loadStateFromSupabase();
+        if (supabaseState) {
+            applyStateSnapshot(supabaseState);
+            saveStateToLocal(getStateSnapshot());
+            window.forceDataSync();
+            window.updateDesignFilterSelects();
+            window.renderAll();
+            setCloudStatus('Supabase 연동됨', 'text-sky-500');
+            return;
         }
+    } catch (e) {
+        console.warn("Supabase 로드 실패, 로컬 저장소로 전환합니다.", e);
+    }
 
-        await initFirebaseModules();
-        if (auth && db) {
-            onAuthStateChanged(auth, (u) => {
-                if (u) {
-                    const r = doc(db, FIREBASE_COLLECTION, REMOTE_ROW_ID);
-                    onSnapshot(r, (s) => {
-                        if (s.exists()) {
-                            applyStateSnapshot(s.data());
-                            setCloudStatus('클라우드 연동됨', 'text-emerald-500');
-                            window.forceDataSync(); 
-                            window.updateDesignFilterSelects(); 
-                            window.renderAll();
-                        } else {
-                            window.loadFromLocal();
-                        }
-                    }, (e) => {
-                        console.error("Firebase 로드 실패:", e);
-                        window.loadFromLocal();
-                    });
-                } else {
-                    signInAnonymously(auth).catch(e => {
-                        console.error("인증 실패:", e);
-                        window.loadFromLocal();
-                    });
-                }
-            });
-        } else {
-            window.loadFromLocal();
-        }
-    };
+    window.loadFromLocal();
+};
 
     window.initScrollToggle = function() {
         const m = document.getElementById('main-scroll-container');
