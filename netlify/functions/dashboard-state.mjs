@@ -55,21 +55,62 @@ async function callSupabase(config, path, init = {}) {
     });
 }
 
-async function handleGet() {
-    const config = getRequiredConfig();
-    if (!isConfig(config)) return jsonResponse({ error: config.error, missing: config.missing }, 500);
-
+async function readRemoteState(config) {
     const response = await callSupabase(
         config,
         `${config.table}?id=eq.${encodeURIComponent(config.rowId)}&select=payload`
     );
 
     if (!response.ok) {
-        return jsonResponse({ error: 'Supabase read failed.' }, response.status);
+        return { error: 'Supabase read failed.', status: response.status };
     }
 
     const rows = await response.json();
-    return jsonResponse({ state: rows?.[0]?.payload || null });
+    return { state: rows?.[0]?.payload || null };
+}
+
+async function writeRemoteState(config, state) {
+    return callSupabase(
+        config,
+        `${config.table}?on_conflict=id`,
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Prefer: 'resolution=merge-duplicates'
+            },
+            body: JSON.stringify({
+                id: config.rowId,
+                payload: state,
+                updated_at: new Date().toISOString()
+            })
+        }
+    );
+}
+
+function mergePublicState(currentState, incomingState) {
+    return {
+        ...(currentState || {}),
+        boardData: Array.isArray(incomingState.boardData) ? incomingState.boardData : currentState?.boardData,
+        progressData: incomingState.progressData && typeof incomingState.progressData === 'object'
+            ? incomingState.progressData
+            : currentState?.progressData,
+        studentComments: incomingState.studentComments && typeof incomingState.studentComments === 'object'
+            ? incomingState.studentComments
+            : currentState?.studentComments
+    };
+}
+
+async function handleGet() {
+    const config = getRequiredConfig();
+    if (!isConfig(config)) return jsonResponse({ error: config.error, missing: config.missing }, 500);
+
+    const result = await readRemoteState(config);
+    if (result.error) {
+        return jsonResponse({ error: result.error }, result.status);
+    }
+
+    return jsonResponse({ state: result.state });
 }
 
 async function handlePost(req) {
@@ -88,32 +129,29 @@ async function handlePost(req) {
         return jsonResponse({ error: 'Write password is not configured.' }, 500);
     }
 
-    if (password !== config.writePassword) {
+    if (password && password !== config.writePassword) {
         return jsonResponse({ error: 'Invalid write password.' }, 403);
     }
 
-    const response = await callSupabase(
-        config,
-        `${config.table}?on_conflict=id`,
-        {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Prefer: 'resolution=merge-duplicates'
-            },
-            body: JSON.stringify({
-                id: config.rowId,
-                payload: state,
-                updated_at: new Date().toISOString()
-            })
+    let nextState = state;
+    let mode = 'full';
+
+    if (!password) {
+        const current = await readRemoteState(config);
+        if (current.error) {
+            return jsonResponse({ error: current.error }, current.status);
         }
-    );
+        nextState = mergePublicState(current.state, state);
+        mode = 'public';
+    }
+
+    const response = await writeRemoteState(config, nextState);
 
     if (!response.ok) {
         return jsonResponse({ error: 'Supabase write failed.' }, response.status);
     }
 
-    return jsonResponse({ ok: true });
+    return jsonResponse({ ok: true, mode });
 }
 
 export default async (req) => {

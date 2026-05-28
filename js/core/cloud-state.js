@@ -41,14 +41,17 @@
 
     async function saveToNetlify(state, writePassword) {
         const config = getNetlifyConfig();
-        if (!config.enabled || !config.endpoint || !writePassword) return false;
+        if (!config.enabled || !config.endpoint) return false;
 
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        if (writePassword) {
+            headers['X-Dashboard-Write-Password'] = writePassword;
+        }
         const response = await fetch(config.endpoint, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Dashboard-Write-Password': writePassword
-            },
+            headers,
             body: JSON.stringify({ state })
         });
 
