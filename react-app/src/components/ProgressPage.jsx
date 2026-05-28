@@ -1,5 +1,5 @@
 import { Save } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { STUDENTS, TASKS, createEmptyProgress } from '../constants.js';
 
 function clampPercent(value) {
@@ -18,6 +18,10 @@ export default function ProgressPage({ dashboardState, onSave }) {
   const progressData = dashboardState.progressData || createEmptyProgress();
   const [selectedStudent, setSelectedStudent] = useState(STUDENTS[0]);
   const [draft, setDraft] = useState(progressData[selectedStudent] || {});
+
+  useEffect(() => {
+    setDraft(progressData[selectedStudent] || {});
+  }, [progressData, selectedStudent]);
 
   const overallAverage = useMemo(() => {
     const averages = STUDENTS.map((student) => getStudentAverage(progressData, student));
