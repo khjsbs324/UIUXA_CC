@@ -1,5 +1,5 @@
 import { Send, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { STUDENTS } from '../constants.js';
 
 function formatDate(date = new Date()) {

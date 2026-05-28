@@ -1,5 +1,5 @@
 import { ClipboardList, Gauge, Loader2, RefreshCw } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import BoardPage from './components/BoardPage.jsx';
 import ProgressPage from './components/ProgressPage.jsx';
 import { createDefaultState } from './constants.js';

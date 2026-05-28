@@ -1,5 +1,5 @@
 import { Save } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { STUDENTS, TASKS, createEmptyProgress } from '../constants.js';
 
 function clampPercent(value) {
