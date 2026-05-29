@@ -389,193 +389,23 @@
         getCurrentScheduleDate: () => currentScheduleDate
     });
 
-    window.renderAllToolCards = function() {
-        ['photoshop', 'illustrator', 'figma', 'design'].forEach(t => {
-            ['basic', 'advanced'].forEach(l => { window.renderToolCards(t, l); });
-        });
-        if (isEditMode) window.bindToolCardDragAndDrop(); lucide.createIcons();
-    };
-
-    window.renderToolCards = function(tId, lId) {
-        const c = document.getElementById(`grid-${tId}-${lId}`); if (!c) return; c.innerHTML = '';
-        if (currentToolLayout === 'grid') c.className = 'tool-card-container grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6';
-        else c.className = 'tool-card-container flex flex-col gap-4';
-        let cds = [...(toolData[tId][lId] || [])]; if (currentSortOrder === 'newest') cds.reverse();
-        if (isEditMode) {
-            const ac = currentToolLayout === 'grid' ? 'bg-slate-50/50 border-2 border-dashed border-slate-200 rounded-[24px] p-6 flex flex-col items-center justify-center text-slate-400 hover:text-figjam cursor-pointer min-h-[220px]' : 'bg-slate-50/50 border-2 border-dashed border-slate-200 rounded-[20px] p-4 flex items-center justify-center text-slate-400 hover:text-figjam cursor-pointer w-full h-[100px]';
-            c.innerHTML += `<div ${actionAttrs('openToolCardModal', [tId, lId, 'new'])} class="${ac}"><i data-lucide="plus-circle" class="w-8 h-8 mb-2"></i><span class="font-bold">카드 추가</span></div>`;
-        }
-        cds.forEach(cd => {
-            if (!isEditMode && cd.isHidden) return;
-            if (tId === 'design' && currentDesignFilter !== 'all' && cd.category !== currentDesignFilter) return;
-            const it = roadmapData.todayTask && roadmapData.todayTask.cardId === cd.id;
-            const tb = it ? `<div class="absolute -top-3 -right-3 bg-red-500 text-white text-[11px] font-extrabold px-3 py-1.5 rounded-full shadow-md z-20 flex gap-1"><i data-lucide="star" class="w-3.5 h-3.5"></i> 오늘 과제</div>` : '';
-            const lm = memoData.filter(m => m.cardId === cd.id);
-            const mb = lm.length > 0 ? `<button ${actionAttrs('openMemoListForTool', [tId, lId])} class="absolute -top-3 -left-3 bg-indigo-500 text-white text-[11px] font-extrabold px-2.5 py-1.5 rounded-full shadow-md z-20 flex gap-1 hover:bg-indigo-600"><i data-lucide="file-text" class="w-3.5 h-3.5"></i> ${lm.length}</button>` : '';
-            const hc = cd.isHidden ? 'opacity-50 grayscale' : '';
-            const eb = isEditMode ? `<div class="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 z-20"><button ${actionAttrs('promptDeleteToolCard', [tId, lId, cd.id], { stop: true })} class="text-slate-400 hover:text-red-500 bg-white shadow-sm p-1.5 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button><button ${actionAttrs('openToolCardModal', [tId, lId, cd.id], { stop: true })} class="text-slate-400 hover:text-figjam bg-white shadow-sm p-1.5 rounded-lg"><i data-lucide="edit" class="w-4 h-4"></i></button></div>` : '';
-            let lh = ''; (cd.links || []).forEach(l => { lh += `<a href="${l.url || '#'}" target="_blank" class="block text-[13px] font-bold text-slate-600 hover:text-figjam truncate py-1 flex gap-2"><i data-lucide="play-circle" class="w-4 h-4 shrink-0"></i> <span>${l.text}</span></a>`; });
-            let bh = ''; (cd.buttons || []).forEach(b => { bh += `<a href="${b.url || '#'}" target="_blank" class="flex-1 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl text-[12px] font-bold flex justify-center items-center gap-1.5 border border-slate-100"><i data-lucide="external-link" class="w-3.5 h-3.5"></i> ${b.text}</a>`; });
-            const bc = bh ? `<div class="flex gap-2 mt-4 pt-4 border-t border-slate-50">${bh}</div>` : ''; const dh = cd.desc ? `<p class="text-[13px] text-slate-500 font-medium leading-relaxed mb-4 line-clamp-3">${cd.desc.replace(/\n/g, '<br>')}</p>` : '';
-            const ch = (tId === 'design' && cd.category) ? `<span class="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md mb-2 inline-block">${cd.category}</span>` : '';
-            const bl = cd.badge ? `<span class="text-[12px] font-extrabold text-figjam bg-figjamLight px-2 py-1 rounded-md shadow-sm border border-figjamBorder">${cd.badge}</span>` : '';
-            const br = cd.badgeRight ? `<span class="text-[12px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md shadow-sm border border-emerald-100">${cd.badgeRight}</span>` : '';
-            const bw = (bl || br) ? `<div class="flex justify-between items-center mb-3">${bl} ${br}</div>` : '';
-            if (currentToolLayout === 'grid') {
-                c.innerHTML += `<div class="tool-card-item bg-white p-6 rounded-[24px] border border-slate-100 shadow-soft hover:shadow-hover transition-all flex flex-col relative group min-h-[220px] ${hc}" data-card-id="${cd.id}">${tb}${mb}${eb}${ch}${bw}<h3 class="font-bold text-slate-800 text-[17px] mb-3 pr-8">${cd.title || '제목 없음'}</h3>${dh}<div class="space-y-1 mb-2 flex-1">${lh}</div>${bc}</div>`;
-            } else {
-                c.innerHTML += `<div class="tool-card-item bg-white p-5 rounded-[20px] border border-slate-100 shadow-soft hover:shadow-hover transition-all flex flex-col md:flex-row gap-5 relative group items-start md:items-center ${hc}" data-card-id="${cd.id}">${tb}${mb}${eb}<div class="flex-1 min-w-0 pr-8 md:pr-0">${ch}${bw}<h3 class="font-bold text-slate-800 text-[17px] mb-2">${cd.title || '제목 없음'}</h3>${dh}</div><div class="w-full md:w-[280px] shrink-0 flex flex-col gap-3 md:pl-5 md:border-l border-slate-100"><div class="space-y-1">${lh}</div>${bc}</div></div>`;
-            }
-        });
-    };
-
-    window.addToolLinkRow = function(t = '', u = '') {
-        document.getElementById('tcm-links-container').insertAdjacentHTML('beforeend', `<div class="flex gap-2 tcm-link-item bg-white p-2 rounded-lg border border-slate-100"><div class="flex-1 flex flex-col gap-2"><input type="text" placeholder="텍스트" value="${escapeAttr(t)}" class="link-text w-full border-2 border-slate-100 rounded-md p-2 text-xs font-bold outline-none bg-slate-50"><input type="text" placeholder="URL" value="${escapeAttr(u)}" class="link-url w-full border-2 border-slate-100 rounded-md p-2 text-xs outline-none bg-slate-50"></div><button type="button" ${actionAttrs('removeParentItem')} class="text-slate-300 hover:text-red-500 p-2 shrink-0 bg-slate-50"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>`); lucide.createIcons();
-    };
-
-    window.addToolButtonRow = function(t = '', u = '') {
-        document.getElementById('tcm-buttons-container').insertAdjacentHTML('beforeend', `<div class="flex gap-2 tcm-button-item bg-white p-2 rounded-lg border border-slate-100"><div class="flex-1 flex flex-col gap-2"><input type="text" placeholder="버튼 텍스트" value="${escapeAttr(t)}" class="btn-text w-full border-2 border-slate-100 rounded-md p-2 text-xs font-bold outline-none bg-slate-50"><input type="text" placeholder="URL" value="${escapeAttr(u)}" class="btn-url w-full border-2 border-slate-100 rounded-md p-2 text-xs outline-none bg-slate-50"></div><button type="button" ${actionAttrs('removeParentItem')} class="text-slate-300 hover:text-red-500 p-2 shrink-0 bg-slate-50"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>`); lucide.createIcons();
-    };
-
-    window.openToolCardModal = function(t, l, id) {
-        document.getElementById('tcm-toolId').value = t; document.getElementById('tcm-levelId').value = l; document.getElementById('tcm-cardId').value = id;
-        let cd = { badge: '', badgeRight: '', title: '', desc: '', category: '', links: [], buttons: [] };
-        if (id !== 'new') cd = toolData[t][l].find(x => x.id === id) || cd;
-        document.getElementById('tcm-badge').value = cd.badge; document.getElementById('tcm-badgeRight').value = cd.badgeRight; document.getElementById('tcm-title').value = cd.title; document.getElementById('tcm-desc').value = cd.desc;
-        const cw = document.getElementById('tcm-category-wrapper');
-        if (t === 'design') { cw.classList.remove('hidden'); document.getElementById('tcm-category').value = cd.category; }
-        else cw.classList.add('hidden');
-        document.getElementById('tcm-links-container').innerHTML = ''; document.getElementById('tcm-buttons-container').innerHTML = '';
-        (cd.links || []).forEach(x => window.addToolLinkRow(x.text, x.url));
-        (cd.buttons || []).forEach(x => window.addToolButtonRow(x.text, x.url));
-        if (id === 'new' && !cd.links.length) window.addToolLinkRow();
-        if (id === 'new' && !cd.buttons.length) window.addToolButtonRow();
-        const m = document.getElementById('tool-card-modal'); m.classList.remove('hidden'); m.classList.add('flex');
-        setTimeout(() => m.classList.add('opacity-100'), 10);
-    };
-
-    window.closeToolCardModal = function() {
-        const m = document.getElementById('tool-card-modal'); m.classList.remove('opacity-100');
-        setTimeout(() => { m.classList.add('hidden'); m.classList.remove('flex'); }, 300);
-    };
-
-    window.saveToolCard = function() {
-        const t = document.getElementById('tcm-toolId').value; const l = document.getElementById('tcm-levelId').value; let id = document.getElementById('tcm-cardId').value;
-        const nl = []; document.querySelectorAll('.tcm-link-item').forEach(x => { const txt = x.querySelector('.link-text').value.trim(); const url = x.querySelector('.link-url').value.trim(); if (txt || url) nl.push({ text: txt, url: url }); });
-        const nb = []; document.querySelectorAll('.tcm-button-item').forEach(x => { const txt = x.querySelector('.btn-text').value.trim(); const url = x.querySelector('.btn-url').value.trim(); if (txt || url) nb.push({ text: txt, url: url }); });
-        let ih = false; if (id !== 'new') { const ec = toolData[t][l].find(x => x.id === id); if (ec) ih = ec.isHidden; }
-        const d = { id: id === 'new' ? `card_${Date.now()}` : id, badge: document.getElementById('tcm-badge').value.trim(), badgeRight: document.getElementById('tcm-badgeRight').value.trim(), title: document.getElementById('tcm-title').value.trim(), desc: document.getElementById('tcm-desc').value.trim(), category: t === 'design' ? document.getElementById('tcm-category').value.trim() : '', isHidden: ih, links: nl, buttons: nb };
-        if (id === 'new') toolData[t][l].push(d);
-        else { const idx = toolData[t][l].findIndex(x => x.id === id); if (idx > -1) toolData[t][l][idx] = d; }
-        window.saveToFirebase(); window.renderAllToolCards(); window.closeToolCardModal(); window.showToast('저장됨');
-    };
-
-    window.promptDeleteToolCard = function(t, l, id) {
-        currentDeleteToolCardInfo = { toolId: t, levelId: l, cardId: id };
-        const m = document.getElementById('tool-delete-confirm-modal'); m.classList.remove('hidden'); m.classList.add('flex');
-        setTimeout(() => m.classList.add('opacity-100'), 10);
-    };
-
-    window.closeToolDeleteConfirm = function() {
-        const m = document.getElementById('tool-delete-confirm-modal'); m.classList.remove('opacity-100');
-        setTimeout(() => { m.classList.add('hidden'); m.classList.remove('flex'); currentDeleteToolCardInfo = null; }, 300);
-    };
-
-    window.executeDeleteToolCard = function() {
-        if (!currentDeleteToolCardInfo) return;
-        const { toolId: t, levelId: l, cardId: id } = currentDeleteToolCardInfo;
-        toolData[t][l] = toolData[t][l].filter(x => x.id !== id);
-        window.saveToFirebase(); window.renderAllToolCards(); window.closeToolDeleteConfirm(); window.showToast('삭제됨');
-    };
-
-    window.bindToolCardDragAndDrop = function() {
-        document.querySelectorAll('.tool-card-container').forEach(c => {
-            let d = null;
-            c.querySelectorAll('.tool-card-item').forEach(i => {
-                i.addEventListener('dragstart', function(e) {
-                    if (!isEditMode) { e.preventDefault(); return; }
-                    d = this; e.dataTransfer.effectAllowed = 'move'; setTimeout(() => this.classList.add('opacity-40', 'scale-95'), 0);
-                });
-                i.addEventListener('dragover', function(e) {
-                    e.preventDefault(); if (!isEditMode || !d || this === d) return;
-                    const b = this.getBoundingClientRect(); const o = (currentToolLayout === 'grid') ? e.clientX - b.left : e.clientY - b.top; const th = (currentToolLayout === 'grid') ? b.width / 2 : b.height / 2;
-                    if (o > th) this.after(d); else this.before(d);
-                });
-                i.addEventListener('dragend', function() {
-                    if (!isEditMode) return;
-                    this.classList.remove('opacity-40', 'scale-95'); window.saveToolCardOrder(c.getAttribute('data-tool-id'), c.getAttribute('data-level-id')); d = null;
-                });
-            });
-        });
-    };
-
-    window.saveToolCardOrder = function(t, l) {
-        const c = document.getElementById(`grid-${t}-${l}`); const ns = c.querySelectorAll('.tool-card-item');
-        let ids = Array.from(ns).map(n => n.getAttribute('data-card-id')); if (currentSortOrder === 'newest') ids.reverse();
-        toolData[t][l] = ids.map(id => toolData[t][l].find(x => x.id === id)).filter(Boolean);
-        window.saveToFirebase();
-    };
-
-    window.openFilterModal = function() {
-        window.renderFilterManageList(); const m = document.getElementById('filter-manage-modal'); m.classList.remove('hidden'); m.classList.add('flex');
-        setTimeout(() => m.classList.add('opacity-100'), 10);
-    };
-
-    window.closeFilterModal = function() {
-        const m = document.getElementById('filter-manage-modal'); m.classList.remove('opacity-100');
-        setTimeout(() => { m.classList.add('hidden'); m.classList.remove('flex'); }, 300);
-    };
-
-    window.renderFilterManageList = function() {
-        const c = document.getElementById('fm-list-container'); c.innerHTML = '';
-        designFilters.forEach((f, i) => {
-            c.innerHTML += `<div class="flex items-center gap-2"><input type="text" value="${escapeAttr(f)}" ${changeActionAttrs('updateDesignFilter', [i])} class="flex-1 border-2 border-slate-100 rounded-xl p-2 text-sm font-bold"><button ${actionAttrs('deleteDesignFilter', [i])} class="text-slate-300 hover:text-red-500 bg-slate-50 p-2.5 rounded-xl"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>`;
-        });
-        lucide.createIcons();
-    };
-
-    window.addDesignFilter = function() {
-        const v = document.getElementById('fm-new-filter').value.trim();
-        if (v && !designFilters.includes(v)) {
-            designFilters.push(v); document.getElementById('fm-new-filter').value = '';
-            window.saveToFirebase(); window.renderFilterManageList(); window.updateDesignFilterSelects();
-        }
-    };
-
-    window.updateDesignFilter = function(i, v) {
-        v = v.trim();
-        if (v && v !== designFilters[i]) {
-            ['photoshop', 'illustrator', 'figma', 'design'].forEach(t => {
-                ['basic', 'advanced'].forEach(l => {
-                    toolData[t][l].forEach(c => { if (c.category === designFilters[i]) c.category = v; });
-                });
-            });
-            designFilters[i] = v; window.saveToFirebase(); window.updateDesignFilterSelects(); window.renderAllToolCards();
-        }
-    };
-
-    window.deleteDesignFilter = function(i) {
-        ['photoshop', 'illustrator', 'figma', 'design'].forEach(t => {
-            ['basic', 'advanced'].forEach(l => {
-                toolData[t][l].forEach(c => { if (c.category === designFilters[i]) c.category = ''; });
-            });
-        });
-        designFilters.splice(i, 1); window.saveToFirebase(); window.renderFilterManageList(); window.updateDesignFilterSelects(); window.renderAllToolCards();
-    };
-
-    window.updateDesignFilterSelects = function() {
-        const ms = document.getElementById('design-category-filter'); const mds = document.getElementById('tcm-category');
-        if (ms) {
-            let cv = ms.value; ms.innerHTML = `<option value="all">전체</option>`;
-            designFilters.forEach(f => ms.innerHTML += `<option value="${f}">${f}</option>`);
-            if (designFilters.includes(cv)) ms.value = cv; else { ms.value = 'all'; window.changeDesignFilter('all'); }
-        }
-        if (mds) {
-            let cv = mds.value; mds.innerHTML = `<option value="">없음</option>`;
-            designFilters.forEach(f => mds.innerHTML += `<option value="${f}">${f}</option>`);
-            if (designFilters.includes(cv)) mds.value = cv; else mds.value = '';
-        }
-    };
+    window.UIUXA_TOOL_CARDS_VIEW.install({
+        actionAttrs,
+        changeActionAttrs,
+        escapeAttr,
+        getIsEditMode: () => isEditMode,
+        getCurrentToolLayout: () => currentToolLayout,
+        getCurrentDesignFilter: () => currentDesignFilter,
+        setCurrentDesignFilter: (nextFilter) => { currentDesignFilter = nextFilter; },
+        getCurrentSortOrder: () => currentSortOrder,
+        getRoadmapData: () => roadmapData,
+        getToolData: () => toolData,
+        getMemoData: () => memoData,
+        getDesignFilters: () => designFilters,
+        setDesignFilters: (nextFilters) => { designFilters = nextFilters; },
+        getCurrentDeleteToolCardInfo: () => currentDeleteToolCardInfo,
+        setCurrentDeleteToolCardInfo: (nextInfo) => { currentDeleteToolCardInfo = nextInfo; }
+    });
 
     window.UIUXA_WORKSPACE_MEMO_VIEW.install({
         actionAttrs,
