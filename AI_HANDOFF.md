@@ -80,8 +80,9 @@ View modules:
 - PR title: `[codex] Refactor dashboard JavaScript modules`
 - PR status: merged into `main`
 - Merge commit: `57e541b`
+- Handoff documentation commit on `main`: `198a825 Add AI handoff documentation`
 
-Note: This handoff file was created after that PR merge. If this file needs to appear on GitHub/main, push or open a follow-up PR intentionally.
+Note: The base handoff file was added to `main` in `198a825`. Later edits should be reviewed, committed, and pushed intentionally.
 
 ## Validation Already Completed
 
@@ -217,6 +218,73 @@ git push -u origin <branch-name>
 ```
 
 9. Open a PR to `main`, then validate the deployed Netlify site after merge.
+
+## Upcoming Classroom Page Layout Workflow
+
+The user plans to redesign the classroom/class page layout. Do not start coding from the design message alone.
+
+Required process:
+
+1. The user sends the desired classroom page design or layout direction.
+
+2. Before editing code, write a detailed implementation plan and send it to the user.
+
+3. The plan must cover:
+
+- user-facing interpretation of the requested layout
+- which classroom page areas will change
+- which areas should remain unchanged
+- current HTML/CSS/JS structure related to the page
+- likely files to edit
+- how the layout will be implemented
+- desktop and mobile responsive behavior
+- risk areas such as text overflow, button wrapping, card sizing, and overlapping UI
+- possible impact on existing actions, saves, tabs, and other dashboard views
+- validation steps
+- how the experiment branch will be compared with `main`
+- rollback or stop criteria if the change becomes risky
+
+4. Do not edit code until the user clearly says to execute the plan, for example: "execute the plan" or "plan execution".
+
+5. When approved, experiment on the `js-refactor-light` branch first, not directly on `main`. Before editing, make sure the experiment branch includes the latest `main` changes or intentionally document why it does not.
+
+6. Implement the change in the same maintainable style used so far:
+
+- prefer the existing `js/views/*` and `js/core/*` structure
+- keep large behavior out of `js/app.js` when a view module is the better home
+- separate layout rendering from state/data helper logic where practical
+- avoid unnecessary duplication
+- keep changes scoped to the classroom page unless shared behavior truly needs to change
+- do not introduce React for this task unless the user explicitly changes direction
+- do not touch `react-app/`
+
+7. After implementation, verify:
+
+- `node --check` for every edited JavaScript file
+- local classroom page rendering
+- desktop layout
+- mobile layout
+- no obvious text overlap or broken controls
+- no browser console errors
+- existing classroom page behavior still works
+- unrelated tabs still load at least as a smoke test
+
+8. Compare the experiment against the current `main` branch:
+
+- confirm differences are intentional on the classroom page
+- confirm unrelated pages do not visually regress
+- check for unexpected layout shifts, missing text, broken controls, or changed persistence behavior
+
+9. Report results to the user before any `main` merge:
+
+- files changed
+- implementation approach
+- validation performed
+- differences versus `main`
+- problems found or remaining risks
+- whether the change looks ready to merge
+
+10. Only move the change to `main` after the user approves the experiment result.
 
 ## User-Facing Explanation Points
 
