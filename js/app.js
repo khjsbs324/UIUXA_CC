@@ -1144,98 +1144,20 @@
         navigator.clipboard.writeText(`[${m.title}]\n\n${m.content}`).then(() => window.showToast("복사됨")).catch(() => window.showToast("실패"));
     };
 
-    window.updateSummary = function() {
-        if (!progressData || Object.keys(progressData).length === 0) return;
-        let tt = 0; let cnt = 0;
-        for (const s in progressData) { for (const t in progressData[s]) { tt += parseInt(progressData[s][t]) || 0; cnt++; } }
-        const avg = cnt === 0 ? 0 : Math.round(tt / cnt); const el = document.getElementById('summary-avg'); if (el) el.textContent = avg + '%';
-    };
-
-    window.renderStudentLegend = function() {
-        const c = document.getElementById('custom-legend'); if (!c) return; c.innerHTML = '';
-        studentsList.forEach((s, i) => {
-            const sm = tasksList.reduce((a, t) => a + (parseInt(progressData[s][t]) || 0), 0); const av = Math.round(sm / tasksList.length) || 0;
-            const btn = document.createElement('button'); btn.className = 'w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 bg-white group';
-            btn.setAttribute('data-action', 'toggleLegendDataset');
-            btn.setAttribute('data-action-args', JSON.stringify([i]));
-            btn.id = `legend-btn-${i}`;
-            const cb = isEditMode ? `<button ${actionAttrs('openCommentModal', [s], { stop: true })} class="w-7 h-7 flex items-center justify-center bg-indigo-50 hover:bg-indigo-500 hover:text-white rounded-lg text-indigo-400 ml-1"><i data-lucide="message-square" class="w-3.5 h-3.5"></i></button>` : '';
-            btn.innerHTML = `<div class="flex items-center gap-3"><div class="w-3 h-3 rounded-full ${studentColorClass(i)}"></div><span class="text-[14px] font-bold text-slate-700">${s}</span></div><div class="flex items-center gap-1.5"><span class="text-[12px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md mr-1">${av}%</span><span ${actionAttrs('openModal', [s], { stop: true })} class="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-figjam hover:text-white rounded-lg text-slate-400"><i data-lucide="edit-2" class="w-3.5 h-3.5"></i></span>${cb}</div>`;
-            c.appendChild(btn); if (myChart && myChart.isDatasetVisible(i) === false) btn.classList.add('opacity-40');
-        });
-        lucide.createIcons();
-    };
-
-    window.toggleDataset = function(i) { if (!myChart) return; if (myChart.isDatasetVisible(i)) myChart.hide(i); else myChart.show(i); };
-    window.toggleLegendDataset = function(i) { window.toggleDataset(i); window.updateLegendStyle(i); };
-    window.updateLegendStyle = function(i) { if (!myChart) return; const b = document.getElementById(`legend-btn-${i}`); if (!b) return; if (myChart.isDatasetVisible(i)) b.classList.remove('opacity-40'); else b.classList.add('opacity-40'); };
-
-    window.renderChart = function() {
-        const cx = document.getElementById('progressChart'); if (!cx) return;
-        const ds = studentsList.map((s, i) => {
-            return {
-                label: s, data: tasksList.map(t => progressData[s][t] || 0), borderColor: studentColors[i % studentColors.length], backgroundColor: studentColors[i % studentColors.length] + '15', borderWidth: 2, pointBackgroundColor: '#fff', pointBorderColor: studentColors[i % studentColors.length], pointBorderWidth: 2, pointRadius: 4, pointHoverRadius: 6, tension: 0.3, fill: true
-            };
-        });
-        if (myChart) { myChart.data.datasets = ds; myChart.update(); }
-        else {
-            myChart = new Chart(cx, {
-                type: 'line', data: { labels: tasksList, datasets: ds }, options: {
-                    responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: {
-                        legend: { display: false }, tooltip: {
-                            backgroundColor: 'rgba(15,23,42,0.9)', titleFont: { family: 'Pretendard', size: 13, weight: 'bold' }, bodyFont: { family: 'Pretendard', size: 12 }, padding: 12, cornerRadius: 8, callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y}%` }
-                        }
-                    }, scales: {
-                        y: { min: 0, max: 100, grid: { color: '#f1f5f9', borderDash: [5, 5] }, ticks: { font: { family: 'Pretendard', size: 11, weight: 'bold' }, color: '#94a3b8', stepSize: 20 } }, x: { grid: { display: false }, ticks: { font: { family: 'Pretendard', size: 11, weight: 'bold' }, color: '#64748b', maxRotation: 45, minRotation: 45 } }
-                    }
-                }
-            });
-        }
-        window.renderStudentLegend();
-    };
-
-    window.openModal = function(s) {
-        currentEditingStudent = s; document.getElementById('modal-title').textContent = `${s} 진척도 수정`; const g = document.getElementById('modal-form-grid'); g.innerHTML = '';
-        tasksList.forEach((t, i) => {
-            g.innerHTML += `<div class="relative bg-slate-50 p-4 rounded-xl border border-slate-100"><label class="block text-[11px] font-bold text-slate-500 mb-2 truncate"><span class="text-slate-300 mr-1">${i + 1}.</span>${t}</label><div class="relative"><input type="number" id="input-${i}" value="${progressData[s][t]}" min="0" max="100" class="w-full bg-white border border-slate-200 rounded-lg py-2 pl-3 pr-8 text-sm font-bold outline-none focus:border-figjam"><span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none">%</span></div></div>`;
-        });
-        const m = document.getElementById('modal'); m.classList.remove('hidden'); m.classList.add('flex');
-        setTimeout(() => m.classList.add('opacity-100'), 10);
-    };
-
-    window.closeModal = function() {
-        const m = document.getElementById('modal'); m.classList.remove('opacity-100');
-        setTimeout(() => { m.classList.add('hidden'); m.classList.remove('flex'); currentEditingStudent = ''; }, 300);
-    };
-
-    window.saveData = function() {
-        if (!currentEditingStudent) return;
-        tasksList.forEach((t, i) => { const v = parseInt(document.getElementById(`input-${i}`).value) || 0; progressData[currentEditingStudent][t] = Math.min(100, Math.max(0, v)); });
-        window.saveToFirebase(); window.renderChart(); window.updateSummary(); window.closeModal(); window.showToast('저장됨');
-    };
-
-    window.copyProgressData = function() {
-        let t = "이름\t" + tasksList.join("\t") + "\n";
-        studentsList.forEach(s => { t += s + "\t" + tasksList.map(x => progressData[s][x] + "%").join("\t") + "\n"; });
-        navigator.clipboard.writeText(t).then(() => window.showToast("복사됨")).catch(() => window.showToast("실패"));
-    };
-
-    window.openCommentModal = function(s) {
-        document.getElementById('scm-title').textContent = `${s} 코멘트`; document.getElementById('scm-content').value = studentComments[s] || ''; currentEditingStudent = s;
-        const m = document.getElementById('student-comment-modal'); m.classList.remove('hidden'); m.classList.add('flex');
-        setTimeout(() => m.classList.add('opacity-100'), 10);
-    };
-
-    window.closeCommentModal = function() {
-        const m = document.getElementById('student-comment-modal'); m.classList.remove('opacity-100');
-        setTimeout(() => { m.classList.add('hidden'); m.classList.remove('flex'); }, 300);
-    };
-
-    window.saveCommentModal = function() {
-        if (!currentEditingStudent) return;
-        studentComments[currentEditingStudent] = document.getElementById('scm-content').value;
-        window.saveToFirebase(); window.closeCommentModal(); window.showToast('저장됨');
-    };
+    window.UIUXA_PROGRESS_VIEW.install({
+        actionAttrs,
+        studentsList,
+        tasksList,
+        studentColors,
+        studentColorClass,
+        getProgressData: () => progressData,
+        getStudentComments: () => studentComments,
+        getIsEditMode: () => isEditMode,
+        getMyChart: () => myChart,
+        setMyChart: (nextChart) => { myChart = nextChart; },
+        getCurrentEditingStudent: () => currentEditingStudent,
+        setCurrentEditingStudent: (nextStudent) => { currentEditingStudent = nextStudent; }
+    });
 
     window.renderAll = function() {
         window.applyMenuOrder(); window.renderNoticeBoard(); window.renderRoadmap(); window.renderAllToolCards();
