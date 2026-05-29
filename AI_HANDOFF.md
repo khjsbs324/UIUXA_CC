@@ -80,9 +80,8 @@ View modules:
 - PR title: `[codex] Refactor dashboard JavaScript modules`
 - PR status: merged into `main`
 - Merge commit: `57e541b`
-- Handoff documentation commit on `main`: `198a825 Add AI handoff documentation`
 
-Note: The base handoff file was added to `main` in `198a825`. Later edits should be reviewed, committed, and pushed intentionally.
+Note: `AI_HANDOFF.md` exists on `main`. Use `git log --oneline -- AI_HANDOFF.md` to confirm the latest documentation commit instead of relying on this section to list every future handoff update.
 
 ## Validation Already Completed
 
@@ -219,23 +218,24 @@ git push -u origin <branch-name>
 
 9. Open a PR to `main`, then validate the deployed Netlify site after merge.
 
-## Upcoming Classroom Page Layout Workflow
+## Page and Tab Layout Change Workflow
 
-The user plans to redesign the classroom/class page layout. Do not start coding from the design message alone.
+The user may ask to redesign or adjust any specific page/tab, such as Tool class, progress, board, roadmap, schedule, workspace, or notices. Treat named pages as examples, not as permission to edit the whole app. Do not start coding from the design message alone.
 
 Required process:
 
-1. The user sends the desired classroom page design or layout direction.
+1. The user sends the desired page/tab design or layout direction.
 
 2. Before editing code, write a detailed implementation plan and send it to the user.
 
 3. The plan must cover:
 
 - user-facing interpretation of the requested layout
-- which classroom page areas will change
+- which page/tab areas will change
 - which areas should remain unchanged
 - current HTML/CSS/JS structure related to the page
 - likely files to edit
+- files that should not be edited
 - how the layout will be implemented
 - desktop and mobile responsive behavior
 - risk areas such as text overflow, button wrapping, card sizing, and overlapping UI
@@ -254,24 +254,25 @@ Required process:
 - keep large behavior out of `js/app.js` when a view module is the better home
 - separate layout rendering from state/data helper logic where practical
 - avoid unnecessary duplication
-- keep changes scoped to the classroom page unless shared behavior truly needs to change
+- keep changes scoped to the requested page/tab unless shared behavior truly needs to change
+- explain why any shared file change is necessary before making it
 - do not introduce React for this task unless the user explicitly changes direction
 - do not touch `react-app/`
 
 7. After implementation, verify:
 
 - `node --check` for every edited JavaScript file
-- local classroom page rendering
+- local rendering of the changed page/tab
 - desktop layout
 - mobile layout
 - no obvious text overlap or broken controls
 - no browser console errors
-- existing classroom page behavior still works
+- existing behavior on the changed page/tab still works
 - unrelated tabs still load at least as a smoke test
 
 8. Compare the experiment against the current `main` branch:
 
-- confirm differences are intentional on the classroom page
+- confirm differences are intentional on the changed page/tab
 - confirm unrelated pages do not visually regress
 - check for unexpected layout shifts, missing text, broken controls, or changed persistence behavior
 
@@ -285,6 +286,45 @@ Required process:
 - whether the change looks ready to merge
 
 10. Only move the change to `main` after the user approves the experiment result.
+
+## Handoff Document Command Rules
+
+The user defined two short commands for maintaining this file.
+
+### `계획 수정 완료`
+
+When the user sends exactly or clearly says `계획 수정 완료`:
+
+1. Update `AI_HANDOFF.md` using the latest agreed plan and workflow.
+2. Review the file as if another AI/chat session will use it to edit code.
+3. Check for:
+
+- instructions that are too broad and could cause whole-app rewrites
+- page-specific wording that should be generalized to all pages/tabs
+- stale branch, PR, commit, or deployment status
+- conflicts between `main`, `js-refactor-light`, and the current worktree
+- wording that might allow editing before the user approves a plan
+- wording that might allow committing or pushing before the user says `배포`
+- unsafe handling of secrets, passwords, tokens, or API keys
+- accidental permission to stage, delete, or commit `react-app/`
+- missing validation or main-comparison requirements
+
+4. If a problem is found, fix the document.
+5. Report what changed and what was checked.
+6. Do not commit or push during this command unless the user explicitly also says `배포`.
+
+### `배포`
+
+When the user sends exactly or clearly says `배포`:
+
+1. Re-check `AI_HANDOFF.md` for real secrets before committing.
+2. Check `git status --short --branch`.
+3. Confirm the current branch is `main`, or switch to `main` only after confirming there are no unrelated tracked changes.
+4. Confirm `react-app/` is not staged.
+5. Stage only `AI_HANDOFF.md` unless the user explicitly requested other documentation files.
+6. Commit the documentation update on `main`.
+7. Push `main` to GitHub.
+8. Report the commit hash, push result, and remaining untracked files.
 
 ## User-Facing Explanation Points
 
