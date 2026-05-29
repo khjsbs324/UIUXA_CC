@@ -620,27 +620,11 @@ window.initFirebaseAndLoad = async function() {
         });
     };
 
-    window.openBackupModal = function() {
-        document.getElementById('backup-textarea').value = JSON.stringify(getStateSnapshot());
-        const m = document.getElementById('backup-modal'); m.classList.remove('hidden'); m.classList.add('flex');
-        setTimeout(() => m.classList.add('opacity-100'), 10);
-    };
-
-    window.closeBackupModal = function() {
-        const m = document.getElementById('backup-modal'); m.classList.remove('opacity-100');
-        setTimeout(() => { m.classList.add('hidden'); m.classList.remove('flex'); }, 300);
-    };
-
-    window.copyBackup = function() {
-        navigator.clipboard.writeText(document.getElementById('backup-textarea').value).then(() => window.showToast("복사됨")).catch(() => window.showToast("실패"));
-    };
-
-    window.restoreBackup = function() {
-        try {
-            const str = document.getElementById('backup-textarea').value; const st = JSON.parse(str);
-            applyStateSnapshot(st);
-            window.saveToFirebase(); window.renderAll(); window.updateEditModeUI(); window.closeBackupModal(); window.showToast("복원됨");
-        } catch (e) {
-            alert("코드형식 오류");
-        }
-    };
+    window.UIUXA_BACKUP_TOOLS.install({
+        getStateSnapshot,
+        applyStateSnapshot,
+        saveState: () => window.saveToFirebase(),
+        renderAll: () => window.renderAll(),
+        updateEditModeUI: () => window.updateEditModeUI(),
+        showToast: (message) => window.showToast(message)
+    });
