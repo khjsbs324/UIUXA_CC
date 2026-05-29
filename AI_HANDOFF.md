@@ -287,17 +287,55 @@ Required process:
 
 10. Only move the change to `main` after the user approves the experiment result.
 
-## Handoff Document Command Rules
+## User Command Rules
 
-The user defined two short commands for maintaining this file.
+The user defined short Korean commands for planning, maintaining this handoff file, and deploying documentation updates.
+
+Registered commands:
+
+- `md 계획 작성`
+- `내 명령어 보내줘`
+- `내 명령어로 등록해줘`
+- `내 명령어 등록해줘`
+- `계획 수정 완료`
+- `배포`
+
+### `md 계획 작성`
+
+When the user sends exactly or clearly says `md 계획 작성`:
+
+1. Write a Markdown plan based on the current conversation.
+2. Include the relevant workflow, command rules, constraints, and next steps.
+3. Do not edit repository files.
+4. Do not update `AI_HANDOFF.md`.
+5. Do not stage, commit, or push.
+
+### `내 명령어 보내줘`
+
+When the user sends exactly or clearly says `내 명령어 보내줘`:
+
+1. Reply with the user-defined commands relevant to the current conversation.
+2. Include a short explanation of what each command does.
+3. Do not edit files, stage, commit, or push.
+
+### `내 명령어로 등록해줘` / `내 명령어 등록해줘`
+
+When the user sends exactly or clearly says `내 명령어로 등록해줘` or `내 명령어 등록해줘`:
+
+1. Treat the immediately preceding instruction, or the instruction in the same message, as a user command/rule candidate.
+2. Summarize the command name, trigger phrase, and expected behavior.
+3. Include it in the next Markdown plan when `md 계획 작성` is requested.
+4. Include it in `AI_HANDOFF.md` when `계획 수정 완료` is requested.
+5. Do not edit `AI_HANDOFF.md`, stage, commit, or push from this command alone unless the user also clearly says `계획 수정 완료` or `배포`.
 
 ### `계획 수정 완료`
 
 When the user sends exactly or clearly says `계획 수정 완료`:
 
 1. Update `AI_HANDOFF.md` using the latest agreed plan and workflow.
-2. Review the file as if another AI/chat session will use it to edit code.
-3. Check for:
+2. Include newly registered command rules from the conversation.
+3. Review the file as if another AI/chat session will use it to edit code.
+4. Check for:
 
 - instructions that are too broad and could cause whole-app rewrites
 - page-specific wording that should be generalized to all pages/tabs
@@ -308,10 +346,11 @@ When the user sends exactly or clearly says `계획 수정 완료`:
 - unsafe handling of secrets, passwords, tokens, or API keys
 - accidental permission to stage, delete, or commit `react-app/`
 - missing validation or main-comparison requirements
+- newly registered commands that contradict existing command rules
 
-4. If a problem is found, fix the document.
-5. Report what changed and what was checked.
-6. Do not commit or push during this command unless the user explicitly also says `배포`.
+5. If a problem is found, fix the document.
+6. Report what changed and what was checked.
+7. Do not commit or push during this command unless the user explicitly also says `배포`.
 
 ### `배포`
 
