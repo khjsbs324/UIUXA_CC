@@ -67,6 +67,11 @@
         dateData: ['dateLink_v1'],
         boardData: ['boardData_v1']
     };
+    const {
+        normalizeState: normalizeDashboardState,
+        getLocalStateSnapshot: readLocalStateSnapshot,
+        saveStateToLocal: persistStateToLocal
+    } = window.UIUXA_STATE_UTILS;
 
     function getStateSnapshot() {
         return {
@@ -86,20 +91,7 @@
     }
 
     function normalizeState(source = {}) {
-        return {
-            menuOrder: source.menuOrder,
-            noticeData: source.noticeData || source.notice,
-            memoData: source.memoData || source.memo,
-            designFilters: source.designFilters,
-            progressData: source.progressData || source.progress,
-            toolData: source.toolData || source.tool,
-            roadmapData: source.roadmapData || source.roadmap,
-            workspaceData: source.workspaceData || source.workspace,
-            studentComments: source.studentComments,
-            scheduleData: source.scheduleData || source.schedule,
-            dateData: source.dateData || source.dateLink,
-            boardData: source.boardData || source.board
-        };
+        return normalizeDashboardState(source);
     }
 
     function applyStateSnapshot(source = {}) {
@@ -118,42 +110,12 @@
         if (state.boardData) boardData = state.boardData;
     }
 
-
-    function getStoredJson(keys) {
-        for (const key of keys) {
-            const raw = localStorage.getItem(key);
-            if (!raw) continue;
-            try {
-                return JSON.parse(raw);
-            } catch (e) {
-                console.warn(`저장 데이터 파싱 실패: ${key}`, e);
-            }
-        }
-        return undefined;
-    }
-
     function getLocalStateSnapshot() {
-        const state = {};
-        Object.entries(LOCAL_STORAGE_KEYS).forEach(([stateKey, storageKeys]) => {
-            const value = getStoredJson(storageKeys);
-            if (value !== undefined) state[stateKey] = value;
-        });
-        return state;
+        return readLocalStateSnapshot(LOCAL_STORAGE_KEYS);
     }
 
     function saveStateToLocal(state) {
-        localStorage.setItem('menuOrder_v1', JSON.stringify(state.menuOrder));
-        localStorage.setItem('noticeData_v1', JSON.stringify(state.noticeData));
-        localStorage.setItem('memoData_v1', JSON.stringify(state.memoData));
-        localStorage.setItem('designFilters_v1', JSON.stringify(state.designFilters));
-        localStorage.setItem('roadmapData_v1', JSON.stringify(state.roadmapData));
-        localStorage.setItem('toolCardsData_v19', JSON.stringify(state.toolData));
-        localStorage.setItem('workspaceData_v3', JSON.stringify(state.workspaceData));
-        localStorage.setItem('assignmentData_v2', JSON.stringify(state.progressData));
-        localStorage.setItem('studentComments_v1', JSON.stringify(state.studentComments));
-        localStorage.setItem('scheduleData_v1', JSON.stringify(state.scheduleData));
-        localStorage.setItem('dateLink_v1', JSON.stringify(state.dateData));
-        localStorage.setItem('boardData_v1', JSON.stringify(state.boardData));
+        persistStateToLocal(state, LOCAL_STORAGE_KEYS);
     }
 
     async function loadStateFromNetlify() {
