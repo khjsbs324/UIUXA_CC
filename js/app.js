@@ -369,107 +369,11 @@
         }
     };
 
-    window.renderNoticeBoard = function() {
-        const c = document.getElementById('render-notice-board'); if (!c) return; c.innerHTML = '';
-        const p = noticeData.posts || [];
-        p.forEach((pt, i) => {
-            const ia = noticeData.activePopupId === pt.id;
-            const pb = ia ? "bg-figjam text-white" : "bg-slate-100 text-slate-500";
-            const pbt = ia ? "작동중" : "등록";
-            const eb = isEditMode ? `<div class="flex gap-2 shrink-0"><button ${actionAttrs('openNoticeEditModal', [pt.id], { stop: true })} class="text-slate-400 hover:text-figjam p-1.5 rounded-md hover:bg-slate-100 transition-colors"><i data-lucide="edit" class="w-4 h-4"></i></button></div>` : '';
-            c.insertAdjacentHTML('beforeend', `<div ${actionAttrs('openNoticeViewModal', [pt.id])} class="grid grid-cols-12 gap-4 p-5 border-b border-slate-50 hover:bg-slate-50/80 cursor-pointer items-center group"><div class="col-span-1 text-center text-[13px] font-bold text-slate-400">${p.length - i}</div><div class="col-span-7 md:col-span-8 flex items-center gap-3">${ia ? `<span class="bg-red-50 text-red-500 px-2 py-0.5 rounded text-[11px] font-bold shrink-0">중요</span>` : ''}<h3 class="text-[15px] font-bold text-slate-700 truncate group-hover:text-figjam transition-colors">${pt.title}</h3></div><div class="col-span-4 md:col-span-3 flex items-center justify-end gap-4 pr-2"><span class="text-[13px] text-slate-400 hidden md:block">${pt.date}</span><button ${actionAttrs('promptPopupPwd', [pt.id], { stop: true })} class="px-3 py-1.5 rounded-lg text-[12px] flex items-center gap-1.5 shadow-sm ${pb}"><i data-lucide="bell" class="w-3.5 h-3.5"></i> ${pbt}</button>${eb}</div></div>`);
-        });
-        if (isEditMode) c.insertAdjacentHTML('beforeend', `<div ${actionAttrs('openNoticeEditModal', ['new'])} class="p-6 flex flex-col items-center justify-center text-slate-400 hover:text-figjam bg-slate-50/50 cursor-pointer h-[120px]"><i data-lucide="plus-circle" class="w-6 h-6 mb-2"></i><span class="font-bold text-[14px]">새 작성</span></div>`);
-        else if (p.length === 0) c.innerHTML = `<div class="p-12 text-center text-slate-400 font-medium">없음</div>`;
-    };
-
-    window.openNoticeViewModal = function(id) {
-        const p = noticeData.posts.find(x => x.id === id); if (!p) return;
-        document.getElementById('nvm-title').textContent = p.title;
-        document.getElementById('nvm-date').textContent = p.date;
-        document.getElementById('nvm-content').innerHTML = p.content.replace(/\n/g, '<br>');
-        const m = document.getElementById('notice-view-modal'); m.classList.remove('hidden'); m.classList.add('flex');
-        setTimeout(() => m.classList.add('opacity-100'), 10);
-    };
-
-    window.closeNoticeViewModal = function() {
-        const m = document.getElementById('notice-view-modal'); m.classList.remove('opacity-100');
-        setTimeout(() => { m.classList.add('hidden'); m.classList.remove('flex'); }, 300);
-    };
-
-    window.openNoticeEditModal = function(id) {
-        document.getElementById('nem-id').value = id; let p = { title: '', content: '' };
-        if (id !== 'new') p = noticeData.posts.find(x => x.id === id) || p;
-        document.getElementById('nem-title').value = p.title;
-        document.getElementById('nem-content').value = p.content;
-        const d = document.getElementById('btn-nem-delete');
-        if (id === 'new') d.classList.add('hidden');
-        else {
-            d.classList.remove('hidden'); d.setAttribute('data-confirm', 'false'); d.innerHTML = '삭제';
-            d.className = 'px-5 py-2.5 text-sm font-bold text-red-500 bg-white border border-red-200 rounded-xl mr-auto';
-        }
-        const m = document.getElementById('notice-edit-modal'); m.classList.remove('hidden'); m.classList.add('flex');
-        setTimeout(() => m.classList.add('opacity-100'), 10);
-    };
-
-    window.closeNoticeEditModal = function() {
-        const m = document.getElementById('notice-edit-modal'); m.classList.remove('opacity-100');
-        setTimeout(() => { m.classList.add('hidden'); m.classList.remove('flex'); }, 300);
-    };
-
-    window.saveNotice = function() {
-        const id = document.getElementById('nem-id').value;
-        const t = document.getElementById('nem-title').value.trim();
-        const c = document.getElementById('nem-content').value;
-        if (!t) return window.showToast("제목 입력");
-        if (id === 'new') {
-            const d = new Date();
-            noticeData.posts.unshift({
-                id: 'n_' + Date.now(), title: t, content: c, date: `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
-            });
-        } else {
-            const idx = noticeData.posts.findIndex(x => x.id === id);
-            if (idx > -1) { noticeData.posts[idx].title = t; noticeData.posts[idx].content = c; }
-        }
-        window.saveToFirebase(); window.renderNoticeBoard(); window.closeNoticeEditModal(); window.showToast('저장됨');
-    };
-
-    window.deleteNotice = function() {
-        const b = document.getElementById('btn-nem-delete');
-        if (b.getAttribute('data-confirm') === 'true') {
-            const id = document.getElementById('nem-id').value;
-            noticeData.posts = noticeData.posts.filter(x => x.id !== id);
-            if (noticeData.activePopupId === id) noticeData.activePopupId = null;
-            window.saveToFirebase(); window.renderNoticeBoard(); window.closeNoticeEditModal(); window.showToast('삭제됨');
-        } else {
-            b.setAttribute('data-confirm', 'true'); b.innerHTML = '정말 삭제할까요?';
-            b.className = 'px-5 py-2.5 text-sm font-bold text-white bg-red-500 border border-red-500 rounded-xl mr-auto';
-            setTimeout(() => {
-                b.setAttribute('data-confirm', 'false'); b.innerHTML = '삭제';
-                b.className = 'px-5 py-2.5 text-sm font-bold text-red-500 bg-white border border-red-200 rounded-xl mr-auto';
-            }, 3000);
-        }
-    };
-
-    window.checkGlobalPopup = function() {
-        if (!noticeData.activePopupId) return;
-        const p = noticeData.posts.find(x => x.id === noticeData.activePopupId); if (!p) return;
-        const hu = localStorage.getItem('hideNoticePopupUntil'); if (hu && Date.now() < parseInt(hu)) return;
-        document.getElementById('global-notice-title').textContent = p.title;
-        document.getElementById('global-notice-content').innerHTML = p.content.replace(/\n/g, '<br>');
-        document.getElementById('global-notice-date').textContent = p.date;
-        const m = document.getElementById('global-notice-modal'); const bx = document.getElementById('global-notice-box');
-        m.classList.remove('hidden'); m.classList.add('flex');
-        setTimeout(() => { m.classList.add('opacity-100'); bx.classList.remove('scale-95'); bx.classList.add('scale-100'); }, 10);
-    };
-
-    window.closeGlobalPopup = function() {
-        const cb = document.getElementById('hide-12h');
-        if (cb && cb.checked) localStorage.setItem('hideNoticePopupUntil', Date.now() + 12 * 60 * 60 * 1000);
-        const m = document.getElementById('global-notice-modal'); const bx = document.getElementById('global-notice-box');
-        m.classList.remove('opacity-100'); bx.classList.remove('scale-100'); bx.classList.add('scale-95');
-        setTimeout(() => { m.classList.add('hidden'); m.classList.remove('flex'); }, 300);
-    };
+    window.UIUXA_NOTICE_VIEW.install({
+        actionAttrs,
+        getIsEditMode: () => isEditMode,
+        getNoticeData: () => noticeData
+    });
 
     window.renderTodayTask = function() {
         const c = document.getElementById('render-today-task'); if (!c) return;
