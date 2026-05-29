@@ -944,205 +944,24 @@
         }
     };
 
-    window.renderWorkspace = function() {
-        const c = document.getElementById('render-workspace-cards'); if (!c) return; c.innerHTML = '';
-        if (isEditMode) c.innerHTML += `<div ${actionAttrs('openWorkspaceModal', ['new'])} class="bg-slate-50/50 border-2 border-dashed border-slate-200 rounded-[24px] p-6 flex flex-col items-center justify-center text-slate-400 hover:text-figjam cursor-pointer min-h-[250px]"><i data-lucide="plus-circle" class="w-10 h-10 mb-3"></i><span class="font-bold text-[15px]">추가</span></div>`;
-        workspaceData.forEach(u => {
-            let eb = isEditMode ? `<button ${actionAttrs('openWorkspaceModal', [u.id])} class="absolute top-4 right-4 text-slate-400 hover:text-figjam bg-slate-50 p-2 rounded-xl opacity-0 group-hover:opacity-100 z-20"><i data-lucide="edit" class="w-4 h-4"></i></button>` : '';
-            let lh = '';
-            (u.links || []).forEach(l => {
-                if (!l.name) return;
-                lh += `<div class="flex items-center gap-2">
-                    <a href="${l.url}" target="_blank" class="flex-1 flex justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-100 group/link transition-colors">
-                        <div class="flex items-center gap-2.5">
-                            <div class="w-8 h-8 rounded-lg bg-white flex justify-center items-center text-slate-400 shadow-sm"><i data-lucide="${l.icon || 'link'}" class="w-4 h-4"></i></div>
-                            <span class="text-[13px] font-bold text-slate-700">${l.name}</span>
-                        </div>
-                        <i data-lucide="external-link" class="w-3.5 h-3.5 text-slate-300"></i>
-                    </a>
-                    <button ${actionAttrs('copyToClipboard', [l.url])} class="w-[46px] h-[46px] flex items-center justify-center bg-slate-50 border border-slate-100 rounded-xl text-slate-400 hover:text-figjam hover:bg-slate-100 transition-colors shrink-0 shadow-sm" title="링크 복사"><i data-lucide="copy" class="w-4 h-4"></i></button>
-                </div>`;
-            });
-            c.innerHTML += `<div class="bg-white rounded-[24px] border border-slate-100 shadow-soft hover:shadow-hover p-6 relative group">${eb}
-                <div class="flex gap-3.5 mb-5 border-b border-slate-50 pb-4">
-                    <div class="w-12 h-12 rounded-2xl bg-figjam text-white flex justify-center items-center text-lg font-bold shadow-md shrink-0">${u.avatar || u.name.charAt(0)}</div>
-                    <div class="flex-1 min-w-0">
-                        <h3 class="font-bold text-slate-800 text-[16px] truncate">${u.name}</h3>
-                        <div class="text-[12px] font-medium text-slate-400 mt-1 flex items-center gap-1">
-                            <i data-lucide="mail" class="w-3 h-3 shrink-0"></i> 
-                            <span class="truncate">${u.email || 'abcd123@gmail.com'}</span>
-                            <button ${actionAttrs('copyToClipboard', [u.email || 'abcd123@gmail.com'])} class="ml-1 text-slate-300 hover:text-figjam transition-colors shrink-0" title="이메일 복사"><i data-lucide="copy" class="w-3 h-3"></i></button>
-                        </div>
-                    </div>
-                </div>
-                <div class="space-y-2.5">${lh}</div>
-            </div>`;
-        });
-        lucide.createIcons();
-    };
-
-    window.addNewLinkToWorkspace = function() {
-        document.getElementById('wsm-links-container').insertAdjacentHTML('beforeend', `<div class="wsm-link-item bg-slate-50 p-4 rounded-xl relative group"><button type="button" ${actionAttrs('removeParentItem')} class="absolute top-2 right-2 text-slate-300 hover:text-red-500 bg-white rounded-md p-1"><i data-lucide="trash-2" class="w-3 h-3"></i></button><div class="grid grid-cols-2 gap-3 mb-3"><div><input type="text" placeholder="이름" class="w-full border-2 border-slate-200 rounded-lg p-2 text-xs font-bold bg-white link-name"></div><div><input type="text" value="link" class="w-full border-2 border-slate-200 rounded-lg p-2 text-xs bg-white link-icon"></div></div><input type="text" placeholder="URL" class="w-full border-2 border-slate-200 rounded-lg p-2 text-xs bg-white link-url"></div>`); lucide.createIcons();
-    };
-
-    window.openWorkspaceModal = function(id) {
-        document.getElementById('wsm-id').value = id; let u = { name: '', avatar: '', email: '', links: [] };
-        if (id !== 'new') u = workspaceData.find(x => x.id === id) || u;
-        document.getElementById('wsm-name').value = u.name; document.getElementById('wsm-avatar').value = u.avatar; document.getElementById('wsm-email').value = u.email || '';
-        const db = document.getElementById('btn-wsm-delete'); if (id === 'new') db.classList.add('hidden'); else db.classList.remove('hidden');
-        const c = document.getElementById('wsm-links-container'); c.innerHTML = '';
-        (u.links || []).forEach(l => {
-            c.insertAdjacentHTML('beforeend', `<div class="wsm-link-item bg-slate-50 p-4 rounded-xl relative group"><button type="button" ${actionAttrs('removeParentItem')} class="absolute top-2 right-2 text-slate-300 hover:text-red-500 bg-white rounded-md p-1"><i data-lucide="trash-2" class="w-3 h-3"></i></button><div class="grid grid-cols-2 gap-3 mb-3"><div><input type="text" value="${escapeAttr(l.name)}" class="w-full border-2 border-slate-200 rounded-lg p-2 text-xs font-bold bg-white link-name"></div><div><input type="text" value="${escapeAttr(l.icon || 'link')}" class="w-full border-2 border-slate-200 rounded-lg p-2 text-xs bg-white link-icon"></div></div><input type="text" value="${escapeAttr(l.url)}" class="w-full border-2 border-slate-200 rounded-lg p-2 text-xs bg-white link-url"></div>`);
-        });
-        if (id === 'new') window.addNewLinkToWorkspace();
-        const m = document.getElementById('workspace-modal'); m.classList.remove('hidden'); m.classList.add('flex');
-        setTimeout(() => m.classList.add('opacity-100'), 10); lucide.createIcons();
-    };
-
-    window.closeWorkspaceModal = function() {
-        const m = document.getElementById('workspace-modal'); m.classList.remove('opacity-100');
-        setTimeout(() => { m.classList.add('hidden'); m.classList.remove('flex'); }, 300);
-    };
-
-    window.saveWorkspaceModal = function() {
-        const id = document.getElementById('wsm-id').value; const n = document.getElementById('wsm-name').value.trim(); const a = document.getElementById('wsm-avatar').value.trim() || n.charAt(0); const e = document.getElementById('wsm-email').value.trim();
-        if (!n) return window.showToast("이름입력");
-        const nl = []; document.querySelectorAll('.wsm-link-item').forEach(x => { const ln = x.querySelector('.link-name').value.trim(); const li = x.querySelector('.link-icon').value.trim(); const lu = x.querySelector('.link-url').value.trim(); if (ln || lu) nl.push({ name: ln, icon: li, url: lu }); });
-        if (id === 'new') workspaceData.push({ id: 'ws_' + Date.now(), name: n, avatar: a, email: e, links: nl });
-        else { const i = workspaceData.findIndex(x => x.id === id); if (i > -1) { workspaceData[i].name = n; workspaceData[i].avatar = a; workspaceData[i].email = e; workspaceData[i].links = nl; } }
-        window.saveToFirebase(); window.renderWorkspace(); window.closeWorkspaceModal(); window.showToast('저장됨');
-    };
-
-    window.deleteWorkspaceCard = function() {
-        const id = document.getElementById('wsm-id').value; workspaceData = workspaceData.filter(x => x.id !== id);
-        window.saveToFirebase(); window.renderWorkspace(); window.closeWorkspaceModal(); window.showToast('삭제됨');
-    };
-
-    window.openMemoListModal = function() {
-        const m = document.getElementById('memo-list-modal'); m.classList.remove('hidden'); m.classList.add('flex');
-        setTimeout(() => m.classList.add('opacity-100'), 10); window.renderMemoList();
-    };
-
-    window.closeMemoListModal = function() {
-        const m = document.getElementById('memo-list-modal'); m.classList.remove('opacity-100');
-        setTimeout(() => { m.classList.add('hidden'); m.classList.remove('flex'); }, 300);
-    };
-
-    window.switchMemoTool = function(id) {
-        currentMemoTool = id;
-        document.querySelectorAll('.memo-tool-tab').forEach(el => { el.classList.remove('font-bold', 'text-indigo-600', 'border-b-[3px]', 'border-indigo-600'); el.classList.add('font-medium', 'text-slate-400'); });
-        const ab = document.getElementById('memotab-tool-' + id); ab.classList.remove('font-medium', 'text-slate-400'); ab.classList.add('font-bold', 'text-indigo-600', 'border-b-[3px]', 'border-indigo-600');
-        window.renderMemoList();
-    };
-
-    window.switchMemoLevel = function(id) {
-        currentMemoLevel = id;
-        document.querySelectorAll('.memo-level-tab').forEach(el => { el.classList.remove('text-indigo-600', 'bg-white', 'shadow-sm', 'font-bold'); el.classList.add('text-slate-500', 'font-medium'); });
-        const ab = document.getElementById('memotab-level-' + id); ab.classList.remove('text-slate-500', 'font-medium'); ab.classList.add('text-indigo-600', 'bg-white', 'shadow-sm', 'font-bold');
-        window.renderMemoList();
-    };
-
-    window.openMemoListForTool = function(toolId, levelId) {
-        window.switchMemoTool(toolId);
-        window.switchMemoLevel(levelId);
-        window.openMemoListModal();
-    };
-
-    window.renderMemoList = function() {
-        const c = document.getElementById('render-memo-list'); if (!c) return; c.innerHTML = '';
-        const fm = memoData.filter(x => x.toolId === currentMemoTool && x.levelId === currentMemoLevel);
-        fm.forEach((m, i) => {
-            const cd = toolData[currentMemoTool][currentMemoLevel].find(x => x.id === m.cardId); const ct = cd ? (cd.title || '없음') : '연결안됨';
-            const eb = isEditMode ? `<button ${actionAttrs('openMemoEditModal', [m.id], { stop: true })} class="text-slate-400 hover:text-indigo-600 p-1.5 rounded-md hover:bg-indigo-50"><i data-lucide="edit" class="w-4 h-4"></i></button>` : '';
-            c.insertAdjacentHTML('beforeend', `<div ${actionAttrs('openMemoViewModal', [m.id])} class="grid grid-cols-12 gap-4 p-4 border-b border-slate-50 hover:bg-slate-50/80 cursor-pointer items-center group"><div class="col-span-1 text-center text-[13px] font-bold text-slate-400">${fm.length - i}</div><div class="col-span-3 truncate text-[12px] font-medium text-slate-400 bg-slate-50 px-2 py-1 rounded-md" title="${ct}">${ct}</div><div class="col-span-5 md:col-span-6 flex items-center gap-3"><h3 class="text-[14px] font-bold text-slate-700 truncate group-hover:text-indigo-600">${m.title}</h3></div><div class="col-span-3 md:col-span-2 flex justify-end gap-3 pr-2"><span class="text-[12px] font-medium text-slate-400">${m.date}</span>${eb}</div></div>`);
-        });
-        if (isEditMode) {
-            c.insertAdjacentHTML('beforeend', `<div ${actionAttrs('openMemoEditModal', ['new'])} class="p-6 flex flex-col items-center justify-center text-slate-400 hover:text-indigo-600 bg-slate-50/50 cursor-pointer h-[100px]"><i data-lucide="plus-circle" class="w-5 h-5 mb-1.5"></i><span class="font-bold text-[13px]">새 작성</span></div>`);
-        } else if (fm.length === 0) {
-            c.innerHTML = `<div class="p-12 text-center text-slate-400">등록된 메모가 없습니다.</div>`;
-        }
-        lucide.createIcons();
-    };
-
-    window.openMemoEditModal = function(id) {
-        document.getElementById('mem-id').value = id; let m = { title: '', content: '', cardId: '' };
-        if (id !== 'new') m = memoData.find(x => x.id === id) || m;
-        document.getElementById('mem-title').value = m.title; document.getElementById('mem-content').value = m.content;
-        const cs = document.getElementById('mem-cardId'); cs.innerHTML = `<option value="">연결 안함</option>`;
-        (toolData[currentMemoTool][currentMemoLevel] || []).forEach(c => {
-            const is = m.cardId === c.id ? 'selected' : ''; cs.innerHTML += `<option value="${c.id}" ${is}>${c.title}</option>`;
-        });
-        const db = document.getElementById('btn-mem-delete'); if (id === 'new') db.classList.add('hidden'); else db.classList.remove('hidden');
-        const md = document.getElementById('memo-edit-modal'); md.classList.remove('hidden'); md.classList.add('flex');
-        setTimeout(() => md.classList.add('opacity-100'), 10);
-    };
-
-    window.closeMemoEditModal = function() {
-        const md = document.getElementById('memo-edit-modal'); md.classList.remove('opacity-100');
-        setTimeout(() => { md.classList.add('hidden'); md.classList.remove('flex'); }, 300);
-    };
-
-    window.saveMemo = function() {
-        const id = document.getElementById('mem-id').value; const t = document.getElementById('mem-title').value.trim(); const c = document.getElementById('mem-content').value.trim(); const ci = document.getElementById('mem-cardId').value;
-        if (!t) return window.showToast("제목입력");
-        if (id === 'new') {
-            const d = new Date();
-            memoData.unshift({
-                id: 'm_' + Date.now(), toolId: currentMemoTool, levelId: currentMemoLevel, cardId: ci, title: t, content: c, date: `${String(d.getFullYear()).slice(-2)}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
-            });
-        } else {
-            const idx = memoData.findIndex(x => x.id === id);
-            if (idx > -1) { memoData[idx].title = t; memoData[idx].content = c; memoData[idx].cardId = ci; }
-        }
-        window.saveToFirebase(); window.renderMemoList(); window.renderAllToolCards(); window.closeMemoEditModal(); window.showToast('저장됨');
-    };
-
-    window.deleteMemo = function() {
-        window.promptDeleteMemo(document.getElementById('mem-id').value); window.closeMemoEditModal();
-    };
-
-    window.promptDeleteMemo = function(id) {
-        currentDeleteMemoId = id; const m = document.getElementById('memo-delete-confirm-modal'); m.classList.remove('hidden'); m.classList.add('flex');
-        setTimeout(() => m.classList.add('opacity-100'), 10);
-    };
-
-    window.closeMemoDeleteConfirm = function() {
-        const m = document.getElementById('memo-delete-confirm-modal'); m.classList.remove('opacity-100');
-        setTimeout(() => { m.classList.add('hidden'); m.classList.remove('flex'); currentDeleteMemoId = null; }, 300);
-    };
-
-    window.executeDeleteMemo = function() {
-        if (!currentDeleteMemoId) return;
-        memoData = memoData.filter(x => x.id !== currentDeleteMemoId);
-        window.saveToFirebase(); window.renderMemoList(); window.renderAllToolCards(); window.closeMemoDeleteConfirm(); window.showToast('삭제됨');
-    };
-
-    window.openMemoViewModal = function(id) {
-        const m = memoData.find(x => x.id === id); if (!m) return; currentViewMemoId = id;
-        document.getElementById('mvm-title').textContent = m.title; document.getElementById('mvm-date').textContent = m.date;
-        const cd = toolData[m.toolId][m.levelId].find(x => x.id === m.cardId); const cb = document.getElementById('mvm-card');
-        if (cd) { cb.classList.remove('hidden'); cb.classList.add('flex'); document.getElementById('mvm-card-text').textContent = cd.title; }
-        else { cb.classList.add('hidden'); cb.classList.remove('flex'); }
-        document.getElementById('mvm-content').innerHTML = m.content.replace(/\n/g, '<br>');
-        const md = document.getElementById('memo-view-modal'); md.classList.remove('hidden'); md.classList.add('flex');
-        setTimeout(() => md.classList.add('opacity-100'), 10);
-    };
-
-    window.closeMemoViewModal = function() {
-        const m = document.getElementById('memo-view-modal'); m.classList.remove('opacity-100');
-        setTimeout(() => { m.classList.add('hidden'); m.classList.remove('flex'); }, 300);
-    };
-
-    window.openMemoListFromView = function() {
-        const m = memoData.find(x => x.id === currentViewMemoId); window.closeMemoViewModal();
-        if (m) { window.switchMemoTool(m.toolId); window.switchMemoLevel(m.levelId); }
-        window.openMemoListModal();
-    };
-
-    window.copyMemoContent = function() {
-        const m = memoData.find(x => x.id === currentViewMemoId); if (!m) return;
-        navigator.clipboard.writeText(`[${m.title}]\n\n${m.content}`).then(() => window.showToast("복사됨")).catch(() => window.showToast("실패"));
-    };
+    window.UIUXA_WORKSPACE_MEMO_VIEW.install({
+        actionAttrs,
+        escapeAttr,
+        getIsEditMode: () => isEditMode,
+        getWorkspaceData: () => workspaceData,
+        setWorkspaceData: (nextWorkspaceData) => { workspaceData = nextWorkspaceData; },
+        getMemoData: () => memoData,
+        setMemoData: (nextMemoData) => { memoData = nextMemoData; },
+        getToolData: () => toolData,
+        getCurrentMemoTool: () => currentMemoTool,
+        setCurrentMemoTool: (nextTool) => { currentMemoTool = nextTool; },
+        getCurrentMemoLevel: () => currentMemoLevel,
+        setCurrentMemoLevel: (nextLevel) => { currentMemoLevel = nextLevel; },
+        getCurrentViewMemoId: () => currentViewMemoId,
+        setCurrentViewMemoId: (nextMemoId) => { currentViewMemoId = nextMemoId; },
+        getCurrentDeleteMemoId: () => currentDeleteMemoId,
+        setCurrentDeleteMemoId: (nextMemoId) => { currentDeleteMemoId = nextMemoId; }
+    });
 
     window.UIUXA_PROGRESS_VIEW.install({
         actionAttrs,
