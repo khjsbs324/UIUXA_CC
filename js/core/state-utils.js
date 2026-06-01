@@ -4,6 +4,7 @@
         memoData: ['memo'],
         progressData: ['progress'],
         toolData: ['tool'],
+        lessonData: ['lesson', 'lessons'],
         roadmapData: ['roadmap'],
         workspaceData: ['workspace'],
         scheduleData: ['schedule'],

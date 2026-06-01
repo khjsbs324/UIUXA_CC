@@ -25,6 +25,7 @@
     }));
 
     let isEditMode = false; let myChart = null; let currentEditingStudent = ''; let hasCheckedGlobalPopup = false;
+    const defaultMenuOrder = ['notice','roadmap','lesson','progress','tool','workspace','schedule','board'];
     let currentTabId = 'roadmap'; let currentToolLayout = 'grid'; let currentDesignFilter = 'all'; let currentSortOrder = 'newest';
     let noticeData = {posts:[{id:'n_1',title:'UIUX 개강 안내',content:'개강을 환영합니다!\n잘 부탁드립니다.',date:'2026.05.20'}],activePopupId:'n_1'};
     let memoData = []; let designFilters = ['리서치','리서치와 브랜딩','브랜딩','설계','패키지']; let studentComments = {};
@@ -42,10 +43,11 @@
         dailyTasks: [{id:'dt_1',status:'완료',icon:'check-circle',title:'Design Copy',link:'',isHidden:false}],
         unitSchedules: JSON.parse(JSON.stringify(defaultUnitSchedules))
     };
+    let lessonData = { sessions: [] };
     let toolData = {photoshop:{basic:[],advanced:[]},illustrator:{basic:[],advanced:[{id:'il_a_1',badge:'[라인]',title:'라인 일러스트',category:'',desc:'',links:[],buttons:[],badgeRight:'',isHidden:false}]},figma:{basic:[],advanced:[]},design:{basic:[],advanced:[]}};
     const tasksList = ['로고','패키지 초안','Web Wire']; const studentColors = ['#ef4444','#f97316','#f59e0b','#84cc16','#22c55e','#10b981','#06b6d4','#0ea5e9','#3b82f6','#6366f1','#8b5cf6'];
     const studentColorClass = (index) => `student-color-${(index % studentColors.length) + 1}`;
-    let menuOrder = ['notice','roadmap','progress','tool','workspace','schedule','board'];
+    let menuOrder = [...defaultMenuOrder];
     let workspaceData = JSON.parse(JSON.stringify(defaultWorkspaceData));
     let progressData = {}; studentsList.forEach(s=>{progressData[s]={};studentComments[s]="";tasksList.forEach(t=>progressData[s][t]=0);});
 
@@ -60,6 +62,7 @@
         designFilters: ['designFilters_v1'],
         roadmapData: ['roadmapData_v1', 'roadmapData'],
         toolData: ['toolCardsData_v19'],
+        lessonData: ['lessonData_v1'],
         workspaceData: ['workspaceData_v3'],
         progressData: ['assignmentData_v2'],
         studentComments: ['studentComments_v1'],
@@ -81,6 +84,7 @@
             designFilters,
             progressData,
             toolData,
+            lessonData,
             roadmapData,
             workspaceData,
             studentComments,
@@ -102,6 +106,7 @@
         if (state.designFilters) designFilters = state.designFilters;
         if (state.progressData) progressData = state.progressData;
         if (state.toolData) toolData = state.toolData;
+        if (state.lessonData) lessonData = state.lessonData;
         if (state.roadmapData) roadmapData = state.roadmapData;
         if (state.workspaceData) workspaceData = state.workspaceData;
         if (state.studentComments) studentComments = state.studentComments;
@@ -278,6 +283,7 @@
         }
         if (id === 'progress') setTimeout(() => { window.renderChart(); myChart?.resize(); }, 50);
         if (id === 'roadmap') setTimeout(() => { window.updateCourseProgress(); window.renderCalendar(); }, 50);
+        if (id === 'lesson') setTimeout(() => { window.renderLessonManager(); }, 50);
         if (id === 'schedule') setTimeout(() => { window.renderFullCalendar(); }, 50);
         if (id === 'board') setTimeout(() => { window.renderBoard(); }, 50);
         document.getElementById('main-scroll-container')?.dispatchEvent(new Event('scroll'));
@@ -389,6 +395,14 @@
         getCurrentScheduleDate: () => currentScheduleDate
     });
 
+    window.UIUXA_LESSON_MANAGEMENT_VIEW.install({
+        actionAttrs,
+        escapeAttr,
+        getIsEditMode: () => isEditMode,
+        getLessonData: () => lessonData,
+        setLessonData: (nextLessonData) => { lessonData = nextLessonData; }
+    });
+
     window.UIUXA_TOOL_CARDS_VIEW.install({
         actionAttrs,
         changeActionAttrs,
@@ -442,7 +456,7 @@
     });
 
     window.renderAll = function() {
-        window.applyMenuOrder(); window.renderNoticeBoard(); window.renderRoadmap(); window.renderAllToolCards();
+        window.applyMenuOrder(); window.renderNoticeBoard(); window.renderRoadmap(); window.renderLessonManager(); window.renderAllToolCards();
         if (document.getElementById('memo-list-modal').classList.contains('flex')) { window.renderMemoList(); }
         window.renderWorkspace(); window.renderStudentLegend(); window.updateSummary();
         if (document.getElementById('tab-progress').classList.contains('active')) { window.renderChart(); }
@@ -455,7 +469,19 @@
 
     window.applyMenuOrder = function() {
         const c = document.getElementById('menu-item-container');
-        menuOrder.forEach(id => { const e = document.getElementById('btn-' + id); if (e) c.appendChild(e); });
+        if (!c) return;
+        const orderedIds = menuOrder.filter(id => document.getElementById('btn-' + id));
+        defaultMenuOrder.forEach((id, index) => {
+            if (orderedIds.includes(id)) return;
+            const previousId = defaultMenuOrder
+                .slice(0, index)
+                .reverse()
+                .find(candidate => orderedIds.includes(candidate));
+            if (previousId) orderedIds.splice(orderedIds.indexOf(previousId) + 1, 0, id);
+            else orderedIds.push(id);
+        });
+        orderedIds.forEach(id => { const e = document.getElementById('btn-' + id); if (e) c.appendChild(e); });
+        menuOrder = Array.from(c.children).map(x => x.getAttribute('data-tab-id')).filter(Boolean);
     };
 
 window.saveAppState = async function() {
@@ -558,7 +584,7 @@ window.initFirebaseAndLoad = async function() {
         if (!m || !b || !iu || !id) return;
         
         const cv = () => {
-            const a = ['notice', 'tool', 'workspace', 'schedule', 'board'];
+            const a = ['notice', 'lesson', 'tool', 'workspace', 'schedule', 'board'];
             if (!a.includes(currentTabId) || m.scrollHeight <= m.clientHeight + 10) {
                 b.classList.add('hidden', 'translate-y-4');
                 b.classList.remove('opacity-100', 'translate-y-0');
