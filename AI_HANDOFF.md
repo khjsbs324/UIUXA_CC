@@ -81,7 +81,7 @@ View modules:
 - PR status: merged into `main`
 - Merge commit: `57e541b`
 
-Note: This handoff file was created after that PR merge. If this file needs to appear on GitHub/main, push or open a follow-up PR intentionally.
+Note: `AI_HANDOFF.md` exists on `main`. Use `git log --oneline -- AI_HANDOFF.md` to confirm the latest documentation commit instead of relying on this section to list every future handoff update.
 
 ## Validation Already Completed
 
@@ -217,6 +217,153 @@ git push -u origin <branch-name>
 ```
 
 9. Open a PR to `main`, then validate the deployed Netlify site after merge.
+
+## Page and Tab Layout Change Workflow
+
+The user may ask to redesign or adjust any specific page/tab, such as Tool class, progress, board, roadmap, schedule, workspace, or notices. Treat named pages as examples, not as permission to edit the whole app. Do not start coding from the design message alone.
+
+Required process:
+
+1. The user sends the desired page/tab design or layout direction.
+
+2. Before editing code, write a detailed implementation plan and send it to the user.
+
+3. The plan must cover:
+
+- user-facing interpretation of the requested layout
+- which page/tab areas will change
+- which areas should remain unchanged
+- current HTML/CSS/JS structure related to the page
+- likely files to edit
+- files that should not be edited
+- how the layout will be implemented
+- desktop and mobile responsive behavior
+- risk areas such as text overflow, button wrapping, card sizing, and overlapping UI
+- possible impact on existing actions, saves, tabs, and other dashboard views
+- validation steps
+- how the experiment branch will be compared with `main`
+- rollback or stop criteria if the change becomes risky
+
+4. Do not edit code until the user clearly says to execute the plan, for example: "execute the plan" or "plan execution".
+
+5. When approved, experiment on the `js-refactor-light` branch first, not directly on `main`. Before editing, make sure the experiment branch includes the latest `main` changes or intentionally document why it does not.
+
+6. Implement the change in the same maintainable style used so far:
+
+- prefer the existing `js/views/*` and `js/core/*` structure
+- keep large behavior out of `js/app.js` when a view module is the better home
+- separate layout rendering from state/data helper logic where practical
+- avoid unnecessary duplication
+- keep changes scoped to the requested page/tab unless shared behavior truly needs to change
+- explain why any shared file change is necessary before making it
+- do not introduce React for this task unless the user explicitly changes direction
+- do not touch `react-app/`
+
+7. After implementation, verify:
+
+- `node --check` for every edited JavaScript file
+- local rendering of the changed page/tab
+- desktop layout
+- mobile layout
+- no obvious text overlap or broken controls
+- no browser console errors
+- existing behavior on the changed page/tab still works
+- unrelated tabs still load at least as a smoke test
+
+8. Compare the experiment against the current `main` branch:
+
+- confirm differences are intentional on the changed page/tab
+- confirm unrelated pages do not visually regress
+- check for unexpected layout shifts, missing text, broken controls, or changed persistence behavior
+
+9. Report results to the user before any `main` merge:
+
+- files changed
+- implementation approach
+- validation performed
+- differences versus `main`
+- problems found or remaining risks
+- whether the change looks ready to merge
+
+10. Only move the change to `main` after the user approves the experiment result.
+
+## User Command Rules
+
+The user defined short Korean commands for planning, maintaining this handoff file, and deploying documentation updates.
+
+Registered commands:
+
+- `md 계획 작성`
+- `내 명령어 보내줘`
+- `내 명령어로 등록해줘`
+- `내 명령어 등록해줘`
+- `계획 수정 완료`
+- `배포`
+
+### `md 계획 작성`
+
+When the user sends exactly or clearly says `md 계획 작성`:
+
+1. Write a Markdown plan based on the current conversation.
+2. Include the relevant workflow, command rules, constraints, and next steps.
+3. Do not edit repository files.
+4. Do not update `AI_HANDOFF.md`.
+5. Do not stage, commit, or push.
+
+### `내 명령어 보내줘`
+
+When the user sends exactly or clearly says `내 명령어 보내줘`:
+
+1. Reply with the user-defined commands relevant to the current conversation.
+2. Include a short explanation of what each command does.
+3. Do not edit files, stage, commit, or push.
+
+### `내 명령어로 등록해줘` / `내 명령어 등록해줘`
+
+When the user sends exactly or clearly says `내 명령어로 등록해줘` or `내 명령어 등록해줘`:
+
+1. Treat the immediately preceding instruction, or the instruction in the same message, as a user command/rule candidate.
+2. Summarize the command name, trigger phrase, and expected behavior.
+3. Include it in the next Markdown plan when `md 계획 작성` is requested.
+4. Include it in `AI_HANDOFF.md` when `계획 수정 완료` is requested.
+5. Do not edit `AI_HANDOFF.md`, stage, commit, or push from this command alone unless the user also clearly says `계획 수정 완료` or `배포`.
+
+### `계획 수정 완료`
+
+When the user sends exactly or clearly says `계획 수정 완료`:
+
+1. Update `AI_HANDOFF.md` using the latest agreed plan and workflow.
+2. Include newly registered command rules from the conversation.
+3. Review the file as if another AI/chat session will use it to edit code.
+4. Check for:
+
+- instructions that are too broad and could cause whole-app rewrites
+- page-specific wording that should be generalized to all pages/tabs
+- stale branch, PR, commit, or deployment status
+- conflicts between `main`, `js-refactor-light`, and the current worktree
+- wording that might allow editing before the user approves a plan
+- wording that might allow committing or pushing before the user says `배포`
+- unsafe handling of secrets, passwords, tokens, or API keys
+- accidental permission to stage, delete, or commit `react-app/`
+- missing validation or main-comparison requirements
+- newly registered commands that contradict existing command rules
+
+5. If a problem is found, fix the document.
+6. Report what changed and what was checked.
+7. Do not commit or push during this command unless the user explicitly also says `배포`.
+
+### `배포`
+
+When the user sends exactly or clearly says `배포`:
+
+1. Re-check `AI_HANDOFF.md` for real secrets before committing.
+2. Check `git status --short --branch`.
+3. Confirm the current branch is `main`, or switch to `main` only after confirming there are no unrelated tracked changes.
+4. Confirm `react-app/` is not staged.
+5. Stage only `AI_HANDOFF.md` unless the user explicitly requested other documentation files.
+6. Commit the documentation update on `main`.
+7. Push `main` to GitHub.
+8. Report the commit hash, push result, and remaining untracked files.
 
 ## User-Facing Explanation Points
 
