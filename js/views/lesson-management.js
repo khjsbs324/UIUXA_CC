@@ -2,8 +2,8 @@
     const refreshIcons = () => window.lucide?.createIcons();
     const showToast = (message) => window.showToast?.(message);
     const saveToCloud = () => window.saveToFirebase?.();
+    const maxAttachmentSize = 4 * 1024 * 1024;
 
-    const itemTypeOrder = ['goal', 'material', 'link', 'assignment', 'submission', 'notice', 'checklist', 'supplement', 'feedback'];
     const itemTypes = {
         goal: { label: '오늘의 목표', icon: 'target', badge: 'bg-purple-50 text-purple-600 border-purple-100' },
         material: { label: '수업 자료', icon: 'file-text', badge: 'bg-blue-50 text-blue-600 border-blue-100' },
@@ -18,10 +18,50 @@
 
     let activeSessionId = '';
     let previewMode = false;
+    let selectedLessonAttachment = null;
 
     function todayString() {
         const today = new Date();
         return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    }
+
+    function formatBytes(bytes = 0) {
+        if (!bytes) return '0 B';
+        const units = ['B', 'KB', 'MB', 'GB'];
+        const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+        return `${(bytes / Math.pow(1024, index)).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+    }
+
+    function getAttachmentIcon(type = '') {
+        if (type.includes('image')) return 'image';
+        if (type.includes('pdf')) return 'file-text';
+        if (type.includes('zip') || type.includes('compressed')) return 'archive';
+        return 'paperclip';
+    }
+
+    function normalizeAttachment(attachment) {
+        if (!attachment || !attachment.dataUrl || !attachment.name) return null;
+        return {
+            name: attachment.name,
+            size: Number(attachment.size) || 0,
+            type: attachment.type || '',
+            dataUrl: attachment.dataUrl,
+            uploadedAt: attachment.uploadedAt || new Date().toISOString()
+        };
+    }
+
+    function compareLessonItems(a, b) {
+        const orderA = Number.isFinite(Number(a.order)) ? Number(a.order) : 0;
+        const orderB = Number.isFinite(Number(b.order)) ? Number(b.order) : 0;
+        if (orderA !== orderB) return orderA - orderB;
+        return String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
+    }
+
+    function renumberLessonItems(session) {
+        session.items = (session.items || []).map((item, index) => ({
+            ...item,
+            order: index
+        }));
     }
 
     function openFadeModal(id) {
@@ -74,17 +114,20 @@
                     title: session.title || '새 수업',
                     summary: session.summary || '',
                     isPublic: session.isPublic !== false,
-                    items: Array.isArray(session.items) ? session.items.map((item) => ({
+                    items: Array.isArray(session.items) ? session.items.map((item, index) => ({
                         id: item.id || `lesson_item_${Date.now()}`,
                         type: itemTypes[item.type] ? item.type : 'material',
                         title: item.title || '',
                         content: item.content || '',
                         url: item.url || '',
+                        dueDate: item.dueDate || '',
+                        attachment: normalizeAttachment(item.attachment),
                         isPublic: item.isPublic !== false,
                         isRequired: item.isRequired === true,
+                        order: Number.isFinite(Number(item.order)) ? Number(item.order) : index,
                         createdAt: item.createdAt || new Date().toISOString(),
                         updatedAt: item.updatedAt || item.createdAt || new Date().toISOString()
-                    })) : []
+                    })).sort(compareLessonItems) : []
                 }))
             };
             setLessonData(normalized);
@@ -114,6 +157,42 @@
             saveToCloud();
             window.renderLessonManager();
             if (message) showToast(message);
+        }
+
+        function renderLessonFileIndicator() {
+            const indicator = document.getElementById('lim-file-indicator');
+            if (!indicator) return;
+            if (!selectedLessonAttachment) {
+                indicator.innerHTML = '<p class="text-[11px] text-slate-400 font-bold">선택된 파일이 없습니다.</p>';
+                return;
+            }
+
+            indicator.innerHTML = `
+                <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-white px-3 py-2 shadow-sm">
+                    <div class="min-w-0 flex items-center gap-2">
+                        <span class="w-8 h-8 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
+                            <i data-lucide="${getAttachmentIcon(selectedLessonAttachment.type)}" class="w-4 h-4"></i>
+                        </span>
+                        <div class="min-w-0">
+                            <p class="text-[12px] font-extrabold text-slate-700 truncate" title="${escapeAttr(selectedLessonAttachment.name)}">${escapeHtml(selectedLessonAttachment.name)}</p>
+                            <p class="text-[11px] text-slate-400 font-bold">${formatBytes(selectedLessonAttachment.size)}</p>
+                        </div>
+                    </div>
+                    <button type="button" ${actionAttrs('clearLessonAttachment')} class="w-8 h-8 rounded-lg bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-500 flex items-center justify-center shrink-0">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            `;
+            refreshIcons();
+        }
+
+        function readFileAsDataUrl(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(reader.error || new Error('파일을 읽을 수 없습니다.'));
+                reader.readAsDataURL(file);
+            });
         }
 
         function renderModeStatus(isEditMode) {
@@ -184,7 +263,7 @@
             `;
         }
 
-        function renderItemCard(session, item, isEditableView) {
+        function renderItemCard(session, item, isEditableView, index, totalItems) {
             const type = itemTypes[item.type] || itemTypes.material;
             const visibilityBadge = item.isPublic
                 ? '<span class="text-[11px] font-extrabold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">공개</span>'
@@ -192,13 +271,29 @@
             const requiredBadge = item.isRequired
                 ? '<span class="text-[11px] font-extrabold text-red-500 bg-red-50 px-2 py-1 rounded-md">필수</span>'
                 : '<span class="text-[11px] font-extrabold text-slate-400 bg-slate-100 px-2 py-1 rounded-md">선택</span>';
+            const dueDateBadge = item.dueDate
+                ? `<span class="text-[11px] font-extrabold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md">마감 ${escapeHtml(item.dueDate)}</span>`
+                : '';
             const urlButton = item.url ? `
                 <a href="${escapeAttr(item.url)}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-figjam border border-slate-100 text-[12px] font-extrabold">
                     <i data-lucide="external-link" class="w-3.5 h-3.5"></i> 열기
                 </a>
             ` : '';
+            const attachmentButton = item.attachment ? `
+                <button ${actionAttrs('downloadLessonAttachment', [session.id, item.id])} class="inline-flex max-w-full items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100 text-[12px] font-extrabold">
+                    <i data-lucide="${getAttachmentIcon(item.attachment.type)}" class="w-3.5 h-3.5 shrink-0"></i>
+                    <span class="truncate">${escapeHtml(item.attachment.name)}</span>
+                    <span class="text-blue-400 shrink-0">${formatBytes(item.attachment.size)}</span>
+                </button>
+            ` : '';
             const editControls = isEditableView ? `
                 <div class="flex items-center gap-1">
+                    <button ${index <= 0 ? 'disabled' : actionAttrs('moveLessonItem', [session.id, item.id, 'up'])} class="w-8 h-8 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center disabled:opacity-30 disabled:pointer-events-none" title="위로 이동">
+                        <i data-lucide="arrow-up" class="w-4 h-4"></i>
+                    </button>
+                    <button ${index >= totalItems - 1 ? 'disabled' : actionAttrs('moveLessonItem', [session.id, item.id, 'down'])} class="w-8 h-8 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center disabled:opacity-30 disabled:pointer-events-none" title="아래로 이동">
+                        <i data-lucide="arrow-down" class="w-4 h-4"></i>
+                    </button>
                     <button ${actionAttrs('toggleLessonItemPublic', [session.id, item.id])} class="w-8 h-8 rounded-lg bg-slate-50 hover:bg-amber-50 text-slate-400 hover:text-amber-500 flex items-center justify-center" title="공개/숨김">
                         <i data-lucide="${item.isPublic ? 'eye' : 'eye-off'}" class="w-4 h-4"></i>
                     </button>
@@ -213,18 +308,20 @@
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0">
                             <div class="flex flex-wrap items-center gap-2 mb-2">
+                                <span class="text-[11px] font-extrabold text-slate-400 bg-slate-50 px-2 py-1 rounded-md">#${index + 1}</span>
                                 <span class="inline-flex items-center gap-1.5 text-[11px] font-extrabold px-2.5 py-1 rounded-lg border ${type.badge}">
                                     <i data-lucide="${type.icon}" class="w-3.5 h-3.5"></i> ${type.label}
                                 </span>
                                 ${visibilityBadge}
                                 ${requiredBadge}
+                                ${dueDateBadge}
                             </div>
                             <h3 class="text-[16px] font-extrabold text-slate-800 leading-snug">${escapeHtml(item.title || '제목 없음')}</h3>
                         </div>
                         ${editControls}
                     </div>
                     ${item.content ? `<p class="text-[13px] text-slate-600 leading-relaxed whitespace-pre-wrap">${withLineBreaks(item.content)}</p>` : ''}
-                    ${urlButton ? `<div>${urlButton}</div>` : ''}
+                    ${urlButton || attachmentButton ? `<div class="flex flex-wrap gap-2 min-w-0">${urlButton}${attachmentButton}</div>` : ''}
                 </article>
             `;
         }
@@ -241,25 +338,20 @@
                 `;
             }
 
-            const visibleItems = studentView ? session.items.filter((item) => item.isPublic) : session.items;
-            const grouped = itemTypeOrder.map((typeId) => ({
-                typeId,
-                items: visibleItems.filter((item) => item.type === typeId)
-            })).filter((group) => group.items.length > 0);
+            const visibleItems = (studentView ? session.items.filter((item) => item.isPublic) : session.items)
+                .slice()
+                .sort(compareLessonItems);
 
-            const groupsHtml = grouped.length ? grouped.map((group) => {
-                const type = itemTypes[group.typeId];
-                return `
-                    <section class="space-y-3">
-                        <h3 class="text-[14px] font-extrabold text-slate-700 flex items-center gap-2">
-                            <i data-lucide="${type.icon}" class="w-4 h-4 text-figjam"></i> ${type.label}
-                        </h3>
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            ${group.items.map((item) => renderItemCard(session, item, isEditableView)).join('')}
-                        </div>
-                    </section>
-                `;
-            }).join('') : `
+            const itemsHtml = visibleItems.length ? `
+                <section class="space-y-3">
+                    <h3 class="text-[14px] font-extrabold text-slate-700 flex items-center gap-2">
+                        <i data-lucide="list-ordered" class="w-4 h-4 text-figjam"></i> 수업 흐름
+                    </h3>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        ${visibleItems.map((item, index) => renderItemCard(session, item, isEditableView, index, visibleItems.length)).join('')}
+                    </div>
+                </section>
+            ` : `
                 <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-8 text-center text-slate-400">
                     <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-2"></i>
                     <p class="text-sm font-bold">${studentView ? '학생에게 공개된 항목이 없습니다.' : '아직 등록된 항목이 없습니다.'}</p>
@@ -294,7 +386,7 @@
                         </div>
                     </div>
                     ${isEditableView ? renderQuickActions(session.id) : ''}
-                    <div class="space-y-7">${groupsHtml}</div>
+                    <div class="space-y-7">${itemsHtml}</div>
                 </div>
             `;
         }
@@ -420,7 +512,7 @@
             const session = data.sessions.find((item) => item.id === sessionId);
             if (!session) return;
             const item = id === 'new'
-                ? { id: 'new', type, title: '', content: '', url: '', isPublic: true, isRequired: false }
+                ? { id: 'new', type, title: '', content: '', url: '', dueDate: '', attachment: null, isPublic: true, isRequired: false, order: session.items.length }
                 : session.items.find((entry) => entry.id === id);
             if (!item) return;
 
@@ -430,6 +522,11 @@
             document.getElementById('lim-title').value = item.title || '';
             document.getElementById('lim-content').value = item.content || '';
             document.getElementById('lim-url').value = item.url || '';
+            document.getElementById('lim-due-date').value = item.dueDate || '';
+            selectedLessonAttachment = normalizeAttachment(item.attachment);
+            const fileInput = document.getElementById('lim-file-input');
+            if (fileInput) fileInput.value = '';
+            renderLessonFileIndicator();
             document.getElementById('lim-public').checked = item.isPublic !== false;
             document.getElementById('lim-required').checked = item.isRequired === true;
             document.getElementById('btn-lim-delete')?.classList.toggle('hidden', id === 'new');
@@ -439,6 +536,45 @@
 
         window.closeLessonItemModal = function() {
             closeFadeModal('lesson-item-modal');
+            selectedLessonAttachment = null;
+        };
+
+        window.clickLessonFileInput = function() {
+            document.getElementById('lim-file-input')?.click();
+        };
+
+        window.handleLessonFileSelect = async function(event) {
+            const file = event.target.files?.[0];
+            if (!file) return;
+            if (file.size > maxAttachmentSize) {
+                event.target.value = '';
+                showToast(`첨부 파일은 ${formatBytes(maxAttachmentSize)} 이하만 가능합니다.`);
+                return;
+            }
+
+            try {
+                selectedLessonAttachment = {
+                    name: file.name,
+                    size: file.size,
+                    type: file.type || '',
+                    dataUrl: await readFileAsDataUrl(file),
+                    uploadedAt: new Date().toISOString()
+                };
+                renderLessonFileIndicator();
+                showToast('첨부 파일을 선택했습니다.');
+            } catch (error) {
+                console.warn('Lesson attachment read failed', error);
+                selectedLessonAttachment = null;
+                renderLessonFileIndicator();
+                showToast('파일을 읽지 못했습니다.');
+            }
+        };
+
+        window.clearLessonAttachment = function() {
+            selectedLessonAttachment = null;
+            const fileInput = document.getElementById('lim-file-input');
+            if (fileInput) fileInput.value = '';
+            renderLessonFileIndicator();
         };
 
         window.saveLessonItem = function() {
@@ -452,27 +588,32 @@
             const session = data.sessions.find((item) => item.id === sessionId);
             if (!session) return;
             const now = new Date().toISOString();
+            const existingIndex = session.items.findIndex((item) => item.id === id);
+            const existingItem = existingIndex > -1 ? session.items[existingIndex] : null;
             const nextItem = {
                 id: id === 'new' ? `lesson_item_${Date.now()}` : id,
                 type: document.getElementById('lim-type').value,
                 title,
                 content: document.getElementById('lim-content').value.trim(),
                 url: document.getElementById('lim-url').value.trim(),
+                dueDate: document.getElementById('lim-due-date').value || '',
+                attachment: selectedLessonAttachment,
                 isPublic: document.getElementById('lim-public').checked,
                 isRequired: document.getElementById('lim-required').checked,
+                order: existingItem ? existingItem.order : session.items.length,
                 createdAt: now,
                 updatedAt: now
             };
 
             if (id === 'new') session.items.push(nextItem);
             else {
-                const index = session.items.findIndex((item) => item.id === id);
-                if (index > -1) {
-                    nextItem.createdAt = session.items[index].createdAt || now;
-                    session.items[index] = nextItem;
+                if (existingIndex > -1) {
+                    nextItem.createdAt = existingItem.createdAt || now;
+                    session.items[existingIndex] = nextItem;
                 }
             }
 
+            renumberLessonItems(session);
             setLessonData(data);
             window.closeLessonItemModal();
             persistAndRender('수업 항목이 저장되었습니다.');
@@ -487,9 +628,41 @@
             const session = data.sessions.find((item) => item.id === sessionId);
             if (!session) return;
             session.items = session.items.filter((item) => item.id !== itemId);
+            renumberLessonItems(session);
             setLessonData(data);
             window.closeLessonItemModal();
             persistAndRender('수업 항목이 삭제되었습니다.');
+        };
+
+        window.moveLessonItem = function(sessionId, itemId, direction) {
+            if (!getIsEditMode()) return;
+            const data = normalizeLessonData();
+            const session = data.sessions.find((item) => item.id === sessionId);
+            if (!session) return;
+            renumberLessonItems(session);
+            const currentIndex = session.items.findIndex((item) => item.id === itemId);
+            if (currentIndex < 0) return;
+            const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+            if (targetIndex < 0 || targetIndex >= session.items.length) return;
+            const [movedItem] = session.items.splice(currentIndex, 1);
+            session.items.splice(targetIndex, 0, movedItem);
+            renumberLessonItems(session);
+            setLessonData(data);
+            persistAndRender('수업 항목 순서를 변경했습니다.');
+        };
+
+        window.downloadLessonAttachment = function(sessionId, itemId) {
+            const data = normalizeLessonData();
+            const session = data.sessions.find((item) => item.id === sessionId);
+            const item = session?.items.find((entry) => entry.id === itemId);
+            const attachment = normalizeAttachment(item?.attachment);
+            if (!attachment) return showToast('첨부 파일이 없습니다.');
+            const link = document.createElement('a');
+            link.href = attachment.dataUrl;
+            link.download = attachment.name;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         };
 
         window.toggleLessonItemPublic = function(sessionId, itemId) {
