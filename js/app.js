@@ -26,7 +26,7 @@
 
     let isEditMode = false; let myChart = null; let currentEditingStudent = ''; let hasCheckedGlobalPopup = false;
     const defaultMenuOrder = ['notice','roadmap','lesson','progress','tool','workspace','schedule','board'];
-    let currentTabId = 'roadmap'; let currentToolLayout = 'grid'; let currentDesignFilter = 'all'; let currentSortOrder = 'newest';
+    let currentTabId = 'roadmap'; let currentToolId = 'photoshop'; let currentToolLevels = {}; let currentToolLayout = 'grid'; let currentDesignFilter = 'all'; let currentSortOrder = 'newest';
     let noticeData = {posts:[{id:'n_1',title:'UIUX 개강 안내',content:'개강을 환영합니다!\n잘 부탁드립니다.',date:'2026.05.20'}],activePopupId:'n_1'};
     let memoData = []; let designFilters = ['리서치','리서치와 브랜딩','브랜딩','설계','패키지']; let studentComments = {};
     let currentMemoTool = 'photoshop'; let currentMemoLevel = 'basic'; let currentViewMemoId = null; let currentDeleteMemoId = null; let currentDeleteToolCardInfo = null;
@@ -45,6 +45,13 @@
     };
     let lessonData = { sessions: [] };
     let toolData = {photoshop:{basic:[],advanced:[]},illustrator:{basic:[],advanced:[{id:'il_a_1',badge:'[라인]',title:'라인 일러스트',category:'',desc:'',links:[],buttons:[],badgeRight:'',isHidden:false}]},figma:{basic:[],advanced:[]},design:{basic:[],advanced:[]}};
+    const defaultToolTabs = [
+        { id: 'photoshop', label: '포토샵', icon: '🎨', levels: ['basic', 'advanced'] },
+        { id: 'illustrator', label: '일러스트', icon: '✒️', levels: ['basic', 'advanced'] },
+        { id: 'figma', label: '피그마', icon: '✨', levels: ['basic', 'advanced'] },
+        { id: 'design', label: '디자인', icon: '🎨', levels: ['basic'] }
+    ];
+    let toolTabs = JSON.parse(JSON.stringify(defaultToolTabs));
     const tasksList = ['로고','패키지 초안','Web Wire']; const studentColors = ['#ef4444','#f97316','#f59e0b','#84cc16','#22c55e','#10b981','#06b6d4','#0ea5e9','#3b82f6','#6366f1','#8b5cf6'];
     const studentColorClass = (index) => `student-color-${(index % studentColors.length) + 1}`;
     let menuOrder = [...defaultMenuOrder];
@@ -61,9 +68,11 @@
         memoData: ['memoData_v1', 'memoData'],
         designFilters: ['designFilters_v1'],
         roadmapData: ['roadmapData_v1', 'roadmapData'],
+        toolTabs: ['toolTabs_v1'],
         toolData: ['toolCardsData_v19'],
         lessonData: ['lessonData_v1'],
         workspaceData: ['workspaceData_v3'],
+        progressTasks: ['progressTasks_v1'],
         progressData: ['assignmentData_v2'],
         studentComments: ['studentComments_v1'],
         scheduleData: ['scheduleData_v1'],
@@ -83,6 +92,8 @@
             memoData,
             designFilters,
             progressData,
+            progressTasks: tasksList,
+            toolTabs,
             toolData,
             lessonData,
             roadmapData,
@@ -105,6 +116,12 @@
         if (state.memoData) memoData = state.memoData;
         if (state.designFilters) designFilters = state.designFilters;
         if (state.progressData) progressData = state.progressData;
+        if (Array.isArray(state.progressTasks) && state.progressTasks.length > 0) {
+            tasksList.splice(0, tasksList.length, ...state.progressTasks.map((task) => String(task).trim()).filter(Boolean));
+        }
+        if (Array.isArray(state.toolTabs) && state.toolTabs.length > 0) {
+            toolTabs = sanitizeToolTabs(state.toolTabs);
+        }
         if (state.toolData) toolData = state.toolData;
         if (state.lessonData) lessonData = state.lessonData;
         if (state.roadmapData) roadmapData = state.roadmapData;
@@ -113,6 +130,42 @@
         if (state.scheduleData) scheduleData = state.scheduleData;
         if (state.dateData) dateData = state.dateData;
         if (state.boardData) boardData = state.boardData;
+        syncProgressDataShape();
+        syncToolDataShape();
+    }
+
+    function sanitizeToolTabs(sourceTabs = []) {
+        const usedIds = new Set();
+        return sourceTabs.map((tab, index) => {
+            const fallback = defaultToolTabs[index] || {};
+            let id = String(tab?.id || fallback.id || `tool_${Date.now()}_${index}`).trim();
+            id = id.replace(/[^a-zA-Z0-9_-]/g, '_') || `tool_${index + 1}`;
+            while (usedIds.has(id)) id = `${id}_${index + 1}`;
+            usedIds.add(id);
+            const label = String(tab?.label || fallback.label || id).trim();
+            const icon = String(tab?.icon || fallback.icon || 'book-open').trim();
+            const levels = Array.isArray(tab?.levels) && tab.levels.length > 0 ? tab.levels : (fallback.levels || ['basic', 'advanced']);
+            return { id, label, icon, levels: levels.filter(Boolean) };
+        });
+    }
+
+    function syncProgressDataShape() {
+        studentsList.forEach((student) => {
+            if (!progressData[student]) progressData[student] = {};
+            tasksList.forEach((task) => {
+                if (progressData[student][task] === undefined) progressData[student][task] = 0;
+            });
+        });
+    }
+
+    function syncToolDataShape() {
+        toolTabs.forEach((tab) => {
+            if (!toolData[tab.id]) toolData[tab.id] = {};
+            (tab.levels || ['basic', 'advanced']).forEach((levelId) => {
+                if (!Array.isArray(toolData[tab.id][levelId])) toolData[tab.id][levelId] = [];
+            });
+        });
+        if (!toolTabs.some((tab) => tab.id === currentToolId)) currentToolId = toolTabs[0]?.id || 'photoshop';
     }
 
     function getLocalStateSnapshot() {
@@ -284,6 +337,7 @@
         if (id === 'progress') setTimeout(() => { window.renderChart(); myChart?.resize(); }, 50);
         if (id === 'roadmap') setTimeout(() => { window.updateCourseProgress(); window.renderCalendar(); }, 50);
         if (id === 'lesson') setTimeout(() => { window.renderLessonManager(); }, 50);
+        if (id === 'tool') setTimeout(() => { window.renderAllToolCards(); }, 50);
         if (id === 'schedule') setTimeout(() => { window.renderFullCalendar(); }, 50);
         if (id === 'board') setTimeout(() => { window.renderBoard(); }, 50);
         document.getElementById('main-scroll-container')?.dispatchEvent(new Event('scroll'));
@@ -306,15 +360,8 @@
     };
 
     window.switchTool = function(id) {
-        document.querySelectorAll('.tool-content').forEach(el => el.classList.remove('active'));
-        document.getElementById('tool-' + id).classList.add('active');
-        document.querySelectorAll('.sub-tab-btn').forEach(el => {
-            el.classList.remove('font-bold', 'text-figjam', 'border-b-[3px]', 'border-figjam');
-            el.classList.add('font-medium', 'text-slate-400');
-        });
-        const ab = document.getElementById('sub-' + id);
-        ab.classList.remove('font-medium', 'text-slate-400');
-        ab.classList.add('font-bold', 'text-figjam', 'border-b-[3px]', 'border-figjam');
+        if (!toolTabs.some((tab) => tab.id === id)) return;
+        currentToolId = id;
         const fc = document.getElementById('design-filter-container');
         if (id === 'design' && fc) fc.classList.remove('hidden');
         else if (fc) fc.classList.add('hidden');
@@ -322,15 +369,9 @@
     };
 
     window.switchLevel = function(id, lv) {
-        document.querySelectorAll('#tool-' + id + ' .level-content').forEach(el => {
-            el.classList.add('hidden'); el.classList.remove('block');
-        });
-        document.getElementById(id + '-' + lv).classList.remove('hidden');
-        document.getElementById(id + '-' + lv).classList.add('block');
-        document.querySelectorAll('#tool-' + id + ' .level-btn').forEach(btn => {
-            btn.className = 'level-btn px-4 py-1.5 text-[14px] font-medium text-slate-500 bg-white border border-slate-200 hover:bg-slate-50 rounded-full transition-all';
-        });
-        document.getElementById('btn-' + id + '-' + lv).className = 'level-btn px-4 py-1.5 text-[14px] font-bold text-figjam bg-figjamLight border border-figjamBorder rounded-full transition-all';
+        if (!toolData[id]?.[lv]) return;
+        currentToolLevels[id] = lv;
+        window.renderAllToolCards();
     };
 
     window.changeToolLayout = function(l) {
@@ -354,9 +395,9 @@
             return;
         }
         let tt = '', tl = '';
-        ['photoshop', 'illustrator', 'figma', 'design'].forEach(t => {
-            ['basic', 'advanced'].forEach(l => {
-                if ((toolData[t][l] || []).find(x => x.id === id)) { tt = t; tl = l; }
+        toolTabs.forEach((tab) => {
+            (tab.levels || ['basic', 'advanced']).forEach(l => {
+                if ((toolData[tab.id]?.[l] || []).find(x => x.id === id)) { tt = tab.id; tl = l; }
             });
         });
         if (tt) {
@@ -386,6 +427,7 @@
         getIsEditMode: () => isEditMode,
         getRoadmapData: () => roadmapData,
         setRoadmapData: (nextRoadmapData) => { roadmapData = nextRoadmapData; },
+        getToolTabs: () => toolTabs,
         getToolData: () => toolData,
         getNoticeData: () => noticeData,
         getScheduleData: () => scheduleData,
@@ -409,12 +451,19 @@
         escapeAttr,
         getIsEditMode: () => isEditMode,
         getCurrentToolLayout: () => currentToolLayout,
+        getCurrentToolId: () => currentToolId,
+        setCurrentToolId: (nextToolId) => { currentToolId = nextToolId; },
+        getCurrentToolLevel: (toolId) => currentToolLevels[toolId] || (toolTabs.find((tab) => tab.id === toolId)?.levels?.[0] || 'basic'),
+        setCurrentToolLevel: (toolId, nextLevelId) => { currentToolLevels[toolId] = nextLevelId; },
         getCurrentDesignFilter: () => currentDesignFilter,
         setCurrentDesignFilter: (nextFilter) => { currentDesignFilter = nextFilter; },
         getCurrentSortOrder: () => currentSortOrder,
         getRoadmapData: () => roadmapData,
         getToolData: () => toolData,
+        getToolTabs: () => toolTabs,
+        setToolTabs: (nextToolTabs) => { toolTabs = sanitizeToolTabs(nextToolTabs); syncToolDataShape(); },
         getMemoData: () => memoData,
+        setMemoData: (nextMemoData) => { memoData = nextMemoData; },
         getDesignFilters: () => designFilters,
         setDesignFilters: (nextFilters) => { designFilters = nextFilters; },
         getCurrentDeleteToolCardInfo: () => currentDeleteToolCardInfo,
@@ -430,6 +479,7 @@
         getMemoData: () => memoData,
         setMemoData: (nextMemoData) => { memoData = nextMemoData; },
         getToolData: () => toolData,
+        getToolTabs: () => toolTabs,
         getCurrentMemoTool: () => currentMemoTool,
         setCurrentMemoTool: (nextTool) => { currentMemoTool = nextTool; },
         getCurrentMemoLevel: () => currentMemoLevel,
@@ -442,6 +492,7 @@
 
     window.UIUXA_PROGRESS_VIEW.install({
         actionAttrs,
+        changeActionAttrs,
         studentsList,
         tasksList,
         studentColors,
@@ -458,12 +509,13 @@
     window.renderAll = function() {
         window.applyMenuOrder(); window.renderNoticeBoard(); window.renderRoadmap(); window.renderLessonManager(); window.renderAllToolCards();
         if (document.getElementById('memo-list-modal').classList.contains('flex')) { window.renderMemoList(); }
-        window.renderWorkspace(); window.renderStudentLegend(); window.updateSummary();
+        window.renderWorkspace(); window.renderStudentLegend(); window.renderProgressTaskManager?.(); window.updateSummary();
         if (document.getElementById('tab-progress').classList.contains('active')) { window.renderChart(); }
         if (document.getElementById('tab-schedule').classList.contains('active')) { window.renderFullCalendar(); }
         if (document.getElementById('tab-board').classList.contains('active')) { window.renderBoard(); }
         lucide.createIcons();
         if (!hasCheckedGlobalPopup) { hasCheckedGlobalPopup = true; window.checkGlobalPopup(); }
+        window.checkTodayDateAlert?.();
         window.updateCourseProgress();
     };
 

@@ -3,6 +3,8 @@
         noticeData: ['notice'],
         memoData: ['memo'],
         progressData: ['progress'],
+        progressTasks: ['tasksList', 'tasks', 'progressTaskList'],
+        toolTabs: ['toolTabData', 'toolTabList'],
         toolData: ['tool'],
         lessonData: ['lesson', 'lessons'],
         roadmapData: ['roadmap'],

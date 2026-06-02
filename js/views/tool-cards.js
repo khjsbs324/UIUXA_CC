@@ -1,6 +1,6 @@
 (function() {
-    const toolIds = ['photoshop', 'illustrator', 'figma', 'design'];
     const levelIds = ['basic', 'advanced'];
+    const levelLabels = { basic: '기초', advanced: '심화' };
     const refreshIcons = () => window.lucide?.createIcons();
     const showToast = (message) => window.showToast?.(message);
     const saveToCloud = () => window.saveToFirebase?.();
@@ -31,24 +31,207 @@
             escapeAttr,
             getIsEditMode,
             getCurrentToolLayout,
+            getCurrentToolId,
+            setCurrentToolId,
+            getCurrentToolLevel,
+            setCurrentToolLevel,
             getCurrentDesignFilter,
             setCurrentDesignFilter,
             getCurrentSortOrder,
             getRoadmapData,
             getToolData,
+            getToolTabs,
+            setToolTabs,
             getMemoData,
+            setMemoData,
             getDesignFilters,
             setDesignFilters,
             getCurrentDeleteToolCardInfo,
             setCurrentDeleteToolCardInfo
         } = context;
 
+        const toolIds = () => getToolTabs().map((tab) => tab.id);
+        const toolLabel = (toolId) => getToolTabs().find((tab) => tab.id === toolId)?.label || toolId;
+        const levelsForTool = (toolId) => getToolTabs().find((tab) => tab.id === toolId)?.levels || levelIds;
+        const makeToolId = (label) => {
+            const base = String(label || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+            let id = base || `tool-${Date.now()}`;
+            const used = new Set(toolIds());
+            let counter = 2;
+            while (used.has(id)) id = `${base || 'tool'}-${counter++}`;
+            return id;
+        };
+        const ensureCurrentTool = () => {
+            const tabs = getToolTabs();
+            if (!tabs.some((tab) => tab.id === getCurrentToolId())) setCurrentToolId(tabs[0]?.id || '');
+            const currentToolId = getCurrentToolId();
+            const levels = levelsForTool(currentToolId);
+            if (!levels.includes(getCurrentToolLevel(currentToolId))) setCurrentToolLevel(currentToolId, levels[0] || 'basic');
+            return currentToolId;
+        };
+
+        window.renderToolShell = function() {
+            const currentToolId = ensureCurrentTool();
+            const nav = document.getElementById('tool-tab-nav');
+            const content = document.getElementById('tool-dynamic-content');
+            const manager = document.getElementById('tool-tab-manager');
+            const toolTabs = getToolTabs();
+
+            if (nav) {
+                nav.innerHTML = toolTabs.map((tab) => {
+                    const active = tab.id === currentToolId;
+                    const activeClass = active ? 'font-bold text-figjam border-b-[3px] border-figjam' : 'font-medium text-slate-400 hover:text-slate-700';
+                    return `<button id="sub-${tab.id}" ${actionAttrs('switchTool', [tab.id])} class="sub-tab-btn pb-3 text-[16px] ${activeClass} transition-colors">${tab.label}</button>`;
+                }).join('');
+            }
+
+            if (manager) {
+                if (!getIsEditMode()) {
+                    manager.classList.add('hidden');
+                    manager.innerHTML = '';
+                } else {
+                    manager.classList.remove('hidden');
+                    const rows = toolTabs.map((tab, index) => {
+                        const isOnly = toolTabs.length <= 1;
+                        const cardCount = (tab.levels || levelIds).reduce((sum, levelId) => sum + (getToolData()[tab.id]?.[levelId]?.length || 0), 0);
+                        return `
+                            <div class="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-xl p-2">
+                                <span class="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-400 text-[12px] font-extrabold flex items-center justify-center shrink-0">${index + 1}</span>
+                                <input type="text" value="${escapeAttr(tab.label)}" ${changeActionAttrs('renameToolTab', [index])} class="flex-1 min-w-0 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-700 outline-none focus:border-figjam">
+                                <span class="hidden sm:inline-flex text-[11px] font-bold text-slate-400 bg-white border border-slate-100 rounded-lg px-2 py-2">${cardCount}</span>
+                                <button type="button" ${actionAttrs('moveToolTab', [index, -1])} ${index === 0 ? 'disabled' : ''} class="w-9 h-9 rounded-lg bg-white border border-slate-200 text-slate-400 ${index === 0 ? 'opacity-40 cursor-not-allowed' : 'hover:text-figjam'} flex items-center justify-center"><i data-lucide="arrow-up" class="w-4 h-4"></i></button>
+                                <button type="button" ${actionAttrs('moveToolTab', [index, 1])} ${index === toolTabs.length - 1 ? 'disabled' : ''} class="w-9 h-9 rounded-lg bg-white border border-slate-200 text-slate-400 ${index === toolTabs.length - 1 ? 'opacity-40 cursor-not-allowed' : 'hover:text-figjam'} flex items-center justify-center"><i data-lucide="arrow-down" class="w-4 h-4"></i></button>
+                                <button type="button" ${actionAttrs('deleteToolTab', [index])} ${isOnly ? 'disabled' : ''} class="w-9 h-9 rounded-lg bg-white border border-slate-200 text-slate-400 ${isOnly ? 'opacity-40 cursor-not-allowed' : 'hover:text-red-500 hover:border-red-200'} flex items-center justify-center"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                            </div>
+                        `;
+                    }).join('');
+                    manager.innerHTML = `
+                        <div class="bg-white border border-slate-100 rounded-[24px] shadow-[0_4px_20px_rgba(0,0,0,0.03)] p-5">
+                            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-2xl bg-figjamLight text-figjam flex items-center justify-center"><i data-lucide="folder-tree" class="w-5 h-5"></i></div>
+                                    <h3 class="text-[16px] font-extrabold text-slate-800">Tool 탭</h3>
+                                </div>
+                                <div class="flex items-center gap-2 w-full lg:w-auto">
+                                    <input id="tool-new-tab-label" type="text" data-enter-action="addToolTab" class="flex-1 lg:w-[220px] border-2 border-slate-100 rounded-xl px-3 py-2.5 text-sm font-bold outline-none focus:border-figjam bg-slate-50" placeholder="탭 추가">
+                                    <button type="button" ${actionAttrs('addToolTab')} class="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-figjam text-white rounded-xl font-bold text-sm hover:bg-[#7c4ced] transition-colors"><i data-lucide="plus" class="w-4 h-4"></i> 추가</button>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 xl:grid-cols-2 gap-2 mt-4">${rows}</div>
+                        </div>
+                    `;
+                }
+            }
+
+            if (content) {
+                content.innerHTML = toolTabs.map((tab) => {
+                    const levels = tab.levels || levelIds;
+                    const activeTool = tab.id === currentToolId;
+                    const activeLevel = getCurrentToolLevel(tab.id);
+                    const levelTabs = levels.length > 1 ? `<div class="flex items-center gap-2 mb-8">${levels.map((levelId) => {
+                        const levelActive = levelId === activeLevel;
+                        const levelClass = levelActive ? 'font-bold text-figjam bg-figjamLight border border-figjamBorder' : 'font-medium text-slate-500 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-700 shadow-sm';
+                        return `<button id="btn-${tab.id}-${levelId}" ${actionAttrs('switchLevel', [tab.id, levelId])} class="level-btn px-4 py-1.5 text-[14px] ${levelClass} rounded-full transition-all">${levelLabels[levelId] || levelId}</button>`;
+                    }).join('')}</div>` : '';
+                    const levelContents = levels.map((levelId) => {
+                        const levelActive = levelId === activeLevel;
+                        const title = levels.length > 1 ? `${tab.label}(${levelLabels[levelId] || levelId} Tool)` : tab.label;
+                        return `
+                            <div id="${tab.id}-${levelId}" class="level-content ${levelActive ? 'block' : 'hidden'}">
+                                <div class="mb-10">
+                                    <h1 class="text-[32px] font-bold text-slate-900 tracking-tight flex items-center gap-2 mb-2">${title} ${tab.icon || ''}</h1>
+                                </div>
+                                <div id="grid-${tab.id}-${levelId}" data-tool-id="${tab.id}" data-level-id="${levelId}" class="tool-card-container"></div>
+                            </div>
+                        `;
+                    }).join('');
+                    return `<div id="tool-${tab.id}" class="tool-content ${activeTool ? 'active' : ''}">${levelTabs}${levelContents}</div>`;
+                }).join('');
+            }
+            refreshIcons();
+        };
+
         window.renderAllToolCards = function() {
-            toolIds.forEach((toolId) => {
-                levelIds.forEach((levelId) => window.renderToolCards(toolId, levelId));
+            window.renderToolShell();
+            getToolTabs().forEach((tab) => {
+                (tab.levels || levelIds).forEach((levelId) => window.renderToolCards(tab.id, levelId));
             });
             if (getIsEditMode()) window.bindToolCardDragAndDrop();
             refreshIcons();
+        };
+
+        window.addToolTab = function() {
+            const input = document.getElementById('tool-new-tab-label');
+            const label = String(input?.value || '').trim();
+            if (!label) return showToast('탭 이름을 입력하세요.');
+            const tabs = [...getToolTabs()];
+            const id = makeToolId(label);
+            tabs.push({ id, label, icon: '📌', levels: ['basic', 'advanced'] });
+            getToolData()[id] = { basic: [], advanced: [] };
+            setToolTabs(tabs);
+            setCurrentToolId(id);
+            if (input) input.value = '';
+            saveToCloud();
+            window.renderAllToolCards();
+            window.updateDesignFilterSelects();
+            window.renderMemoToolTabs?.();
+            showToast('추가됨');
+        };
+
+        window.renameToolTab = function(index, nextLabel) {
+            const tabs = [...getToolTabs()];
+            const tab = tabs[index];
+            const label = String(nextLabel || '').trim();
+            if (!tab) return;
+            if (!label) {
+                window.renderToolShell();
+                return showToast('탭 이름을 입력하세요.');
+            }
+            tab.label = label;
+            setToolTabs(tabs);
+            saveToCloud();
+            window.renderAllToolCards();
+            window.renderMemoToolTabs?.();
+            showToast('저장됨');
+        };
+
+        window.moveToolTab = function(index, direction) {
+            const tabs = [...getToolTabs()];
+            const nextIndex = index + direction;
+            if (nextIndex < 0 || nextIndex >= tabs.length) return;
+            [tabs[index], tabs[nextIndex]] = [tabs[nextIndex], tabs[index]];
+            setToolTabs(tabs);
+            saveToCloud();
+            window.renderAllToolCards();
+            window.renderMemoToolTabs?.();
+        };
+
+        window.deleteToolTab = function(index) {
+            const tabs = [...getToolTabs()];
+            if (tabs.length <= 1) return showToast('탭은 1개 이상 필요합니다.');
+            const tab = tabs[index];
+            if (!tab) return;
+            const cardCount = (tab.levels || levelIds).reduce((sum, levelId) => sum + (getToolData()[tab.id]?.[levelId]?.length || 0), 0);
+            if (cardCount > 0 && !window.confirm(`${tab.label} 탭과 카드 ${cardCount}개를 삭제할까요?`)) return;
+            if (cardCount === 0 && !window.confirm(`${tab.label} 탭을 삭제할까요?`)) return;
+
+            const deletedCardIds = new Set();
+            (tab.levels || levelIds).forEach((levelId) => {
+                (getToolData()[tab.id]?.[levelId] || []).forEach((card) => deletedCardIds.add(card.id));
+            });
+            delete getToolData()[tab.id];
+
+            const roadmapData = getRoadmapData();
+            if (deletedCardIds.has(roadmapData.todayTask?.cardId)) roadmapData.todayTask.cardId = '';
+            setMemoData(getMemoData().filter((memo) => memo.toolId !== tab.id && !deletedCardIds.has(memo.cardId)));
+
+            tabs.splice(index, 1);
+            setToolTabs(tabs);
+            if (getCurrentToolId() === tab.id) setCurrentToolId(tabs[Math.max(0, index - 1)]?.id || tabs[0].id);
+            saveToCloud();
+            window.renderAllToolCards();
+            window.renderMemoToolTabs?.();
+            showToast('삭제됨');
         };
 
         window.renderToolCards = function(toolId, levelId) {
@@ -67,6 +250,8 @@
                 ? 'tool-card-container grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'
                 : 'tool-card-container flex flex-col gap-4';
 
+            if (!toolData[toolId]) toolData[toolId] = {};
+            if (!Array.isArray(toolData[toolId][levelId])) toolData[toolId][levelId] = [];
             let cards = [...(toolData[toolId][levelId] || [])];
             if (getCurrentSortOrder() === 'newest') cards.reverse();
 
@@ -120,7 +305,7 @@
             document.getElementById('tcm-cardId').value = id;
 
             let card = { badge: '', badgeRight: '', title: '', desc: '', category: '', links: [], buttons: [] };
-            if (id !== 'new') card = getToolData()[toolId][levelId].find((item) => item.id === id) || card;
+            if (id !== 'new') card = (getToolData()[toolId]?.[levelId] || []).find((item) => item.id === id) || card;
 
             document.getElementById('tcm-badge').value = card.badge;
             document.getElementById('tcm-badgeRight').value = card.badgeRight;
@@ -153,6 +338,8 @@
             const levelId = document.getElementById('tcm-levelId').value;
             const id = document.getElementById('tcm-cardId').value;
             const toolData = getToolData();
+            if (!toolData[toolId]) toolData[toolId] = {};
+            if (!Array.isArray(toolData[toolId][levelId])) toolData[toolId][levelId] = [];
 
             const links = [];
             document.querySelectorAll('.tcm-link-item').forEach((item) => {
@@ -170,7 +357,7 @@
 
             let isHidden = false;
             if (id !== 'new') {
-                const existingCard = toolData[toolId][levelId].find((card) => card.id === id);
+                const existingCard = (toolData[toolId]?.[levelId] || []).find((card) => card.id === id);
                 if (existingCard) isHidden = existingCard.isHidden;
             }
 
@@ -212,7 +399,9 @@
             if (!deleteInfo) return;
 
             const { toolId, levelId, cardId } = deleteInfo;
-            getToolData()[toolId][levelId] = getToolData()[toolId][levelId].filter((card) => card.id !== cardId);
+            if (getRoadmapData().todayTask?.cardId === cardId) getRoadmapData().todayTask.cardId = '';
+            setMemoData(getMemoData().filter((memo) => memo.cardId !== cardId));
+            if (getToolData()[toolId]?.[levelId]) getToolData()[toolId][levelId] = getToolData()[toolId][levelId].filter((card) => card.id !== cardId);
             saveToCloud();
             window.renderAllToolCards();
             window.closeToolDeleteConfirm();
@@ -253,6 +442,7 @@
 
         window.saveToolCardOrder = function(toolId, levelId) {
             const container = document.getElementById(`grid-${toolId}-${levelId}`);
+            if (!container || !getToolData()[toolId]?.[levelId]) return;
             const orderedIds = Array.from(container.querySelectorAll('.tool-card-item')).map((node) => node.getAttribute('data-card-id'));
             if (getCurrentSortOrder() === 'newest') orderedIds.reverse();
             getToolData()[toolId][levelId] = orderedIds.map((id) => getToolData()[toolId][levelId].find((card) => card.id === id)).filter(Boolean);
@@ -293,9 +483,9 @@
             value = value.trim();
             const designFilters = getDesignFilters();
             if (value && value !== designFilters[index]) {
-                toolIds.forEach((toolId) => {
-                    levelIds.forEach((levelId) => {
-                        getToolData()[toolId][levelId].forEach((card) => {
+                getToolTabs().forEach((tab) => {
+                    (tab.levels || levelIds).forEach((levelId) => {
+                        (getToolData()[tab.id]?.[levelId] || []).forEach((card) => {
                             if (card.category === designFilters[index]) card.category = value;
                         });
                     });
@@ -309,9 +499,9 @@
 
         window.deleteDesignFilter = function(index) {
             const designFilters = getDesignFilters();
-            toolIds.forEach((toolId) => {
-                levelIds.forEach((levelId) => {
-                    getToolData()[toolId][levelId].forEach((card) => {
+            getToolTabs().forEach((tab) => {
+                (tab.levels || levelIds).forEach((levelId) => {
+                    (getToolData()[tab.id]?.[levelId] || []).forEach((card) => {
                         if (card.category === designFilters[index]) card.category = '';
                     });
                 });

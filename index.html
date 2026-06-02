@@ -276,7 +276,7 @@
         <!-- 탭2 Tool 수업 -->
         <div id="tab-tool" class="tab-content">
             <div class="sticky top-0 z-30 bg-[#F8FAFC] pt-8 pb-4 -mt-8 mb-4 border-b border-slate-200 flex items-center justify-between transition-all">
-                <div class="flex items-center gap-6">
+                <div id="tool-tab-nav" class="flex items-center gap-6">
                     <button id="sub-photoshop" data-action="switchTool" data-action-args='["photoshop"]' class="sub-tab-btn pb-3 text-[16px] font-bold text-figjam border-b-[3px] border-figjam transition-colors">포토샵</button>
                     <button id="sub-illustrator" data-action="switchTool" data-action-args='["illustrator"]' class="sub-tab-btn pb-3 text-[16px] font-medium text-slate-400 hover:text-slate-700 transition-colors">일러스트</button>
                     <button id="sub-figma" data-action="switchTool" data-action-args='["figma"]' class="sub-tab-btn pb-3 text-[16px] font-medium text-slate-400 hover:text-slate-700 transition-colors">피그마</button>
@@ -307,7 +307,8 @@
                     <button id="btn-tool-memo" data-action="openMemoListModal" class="px-4 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg text-[13px] font-bold transition-colors shadow-sm flex items-center gap-1"><i data-lucide="file-text" class="w-4 h-4"></i> (메모)</button>
                 </div>
             </div>
-            
+            <div id="tool-tab-manager" class="hidden mb-6"></div>
+            <div id="tool-dynamic-content">
             <div id="tool-photoshop" class="tool-content active">
                 <div class="flex items-center gap-2 mb-8">
                     <button id="btn-photoshop-basic" data-action="switchLevel" data-action-args='["photoshop","basic"]' class="level-btn px-4 py-1.5 text-[14px] font-bold text-figjam bg-figjamLight border border-figjamBorder rounded-full transition-all">기초</button>
@@ -373,6 +374,7 @@
                     <div id="grid-design-basic" data-tool-id="design" data-level-id="basic" class="tool-card-container"></div>
                 </div>
             </div>
+            </div>
         </div>
 
         <!-- 탭3 작업공간 -->
@@ -401,6 +403,7 @@
                     </div>
                 </div>
             </div>
+            <div id="progress-task-manager" class="hidden mb-6"></div>
             <div class="flex flex-row gap-6 w-full items-stretch progress-panel-layout">
                 <div class="w-[300px] bg-white rounded-[24px] shadow-[0_4px_20px_rgba(0,0,0,0.03)] p-4 flex flex-col shrink-0 z-10 border border-slate-100 overflow-y-auto">
                     <div id="custom-legend" class="flex flex-col gap-1 w-full"></div>
@@ -626,10 +629,6 @@
         </div>
         <div class="p-8 max-h-[65vh] overflow-y-auto space-y-5">
             <div class="grid grid-cols-2 gap-4">
-                <div class="col-span-2">
-                    <label class="block text-xs font-bold text-slate-500 mb-1.5">연결할 Tool 카드</label>
-                    <select id="ttm-cardId" class="w-full border-2 border-slate-100 rounded-xl p-2.5 focus:border-figjam outline-none text-sm font-bold bg-slate-50"></select>
-                </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-500 mb-1.5">제목</label>
                     <input type="text" id="ttm-title" class="w-full border-2 border-slate-100 rounded-xl p-2.5 focus:border-figjam outline-none text-sm font-bold bg-slate-50">
@@ -649,8 +648,8 @@
                     <input type="text" id="ttm-bText1" class="w-full border-2 border-slate-100 rounded-xl p-2.5 focus:border-figjam outline-none text-sm font-bold bg-slate-50">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-500 mb-1.5">버튼 1 URL</label>
-                    <input type="text" id="ttm-bUrl1" class="w-full border-2 border-slate-100 rounded-xl p-2.5 focus:border-figjam outline-none text-sm font-medium bg-slate-50">
+                    <label class="block text-xs font-bold text-slate-500 mb-1.5">버튼 1 연결 Tool 카드</label>
+                    <select id="ttm-cardId" class="w-full border-2 border-slate-100 rounded-xl p-2.5 focus:border-figjam outline-none text-sm font-bold bg-slate-50"></select>
                 </div>
             </div>
             <div class="grid grid-cols-2 gap-4">
@@ -852,7 +851,7 @@
         </div>
         <div class="p-8 flex-1 overflow-y-auto flex flex-col">
             <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4 border-b border-slate-100 pb-4">
-                <div class="flex gap-6">
+                <div id="memo-tool-tab-list" class="flex gap-6">
                     <button data-action="switchMemoTool" data-action-args='["photoshop"]' id="memotab-tool-photoshop" class="memo-tool-tab font-bold text-indigo-600 border-b-[3px] border-indigo-600 pb-1 text-[15px] transition-colors">포토샵</button>
                     <button data-action="switchMemoTool" data-action-args='["illustrator"]' id="memotab-tool-illustrator" class="memo-tool-tab font-medium text-slate-400 hover:text-slate-700 pb-1 text-[15px] transition-colors">일러스트</button>
                     <button data-action="switchMemoTool" data-action-args='["figma"]' id="memotab-tool-figma" class="memo-tool-tab font-medium text-slate-400 hover:text-slate-700 pb-1 text-[15px] transition-colors">피그마</button>
@@ -1029,6 +1028,10 @@
         <div class="p-8 space-y-5">
             <input type="hidden" id="dem-date">
             <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1.5 flex items-center gap-1"><i data-lucide="type" class="w-3.5 h-3.5"></i> 날짜 제목</label>
+                    <input type="text" id="dem-title" class="w-full border-2 border-slate-100 rounded-xl p-2.5 focus:border-figjam outline-none text-sm font-bold bg-slate-50" placeholder="예: 브랜드 리서치 발표">
+                </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-500 mb-1.5 flex items-center gap-1"><i data-lucide="bell" class="w-3.5 h-3.5"></i> 공지 연결</label>
                     <select id="dem-noticeId" class="w-full border-2 border-slate-100 rounded-xl p-2.5 focus:border-figjam outline-none text-sm font-bold bg-slate-50"></select>

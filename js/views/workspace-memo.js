@@ -49,6 +49,7 @@
             getMemoData,
             setMemoData,
             getToolData,
+            getToolTabs,
             getCurrentMemoTool,
             setCurrentMemoTool,
             getCurrentMemoLevel,
@@ -58,6 +59,39 @@
             getCurrentDeleteMemoId,
             setCurrentDeleteMemoId
         } = context;
+
+        const memoLevelsForTool = (toolId) => getToolTabs().find((tab) => tab.id === toolId)?.levels || ['basic', 'advanced'];
+        const ensureMemoToolState = () => {
+            const tabs = getToolTabs();
+            if (!tabs.some((tab) => tab.id === getCurrentMemoTool())) setCurrentMemoTool(tabs[0]?.id || '');
+            const levels = memoLevelsForTool(getCurrentMemoTool());
+            if (!levels.includes(getCurrentMemoLevel())) setCurrentMemoLevel(levels[0] || 'basic');
+        };
+
+        window.renderMemoToolTabs = function() {
+            ensureMemoToolState();
+            const toolTabContainer = document.getElementById('memo-tool-tab-list');
+            if (toolTabContainer) {
+                toolTabContainer.innerHTML = getToolTabs().map((tab) => {
+                    const active = tab.id === getCurrentMemoTool();
+                    const activeClass = active ? 'font-bold text-indigo-600 border-b-[3px] border-indigo-600' : 'font-medium text-slate-400 hover:text-slate-700';
+                    return `<button ${actionAttrs('switchMemoTool', [tab.id])} id="memotab-tool-${tab.id}" class="memo-tool-tab ${activeClass} pb-1 text-[15px] transition-colors">${tab.label}</button>`;
+                }).join('');
+            }
+
+            const levelTabContainer = document.getElementById('memo-level-tabs');
+            if (levelTabContainer) {
+                const levels = memoLevelsForTool(getCurrentMemoTool());
+                levelTabContainer.classList.toggle('hidden', levels.length <= 1);
+                levelTabContainer.innerHTML = levels.map((levelId) => {
+                    const active = levelId === getCurrentMemoLevel();
+                    const activeClass = active ? 'font-bold text-indigo-600 bg-white shadow-sm' : 'font-medium text-slate-500 hover:text-slate-700';
+                    const label = levelId === 'basic' ? '기초' : (levelId === 'advanced' ? '심화' : levelId);
+                    return `<button ${actionAttrs('switchMemoLevel', [levelId])} id="memotab-level-${levelId}" class="memo-level-tab px-4 py-1 text-[13px] ${activeClass} rounded-full transition-all">${label}</button>`;
+                }).join('');
+            }
+            refreshIcons();
+        };
 
         window.renderWorkspace = function() {
             const container = document.getElementById('render-workspace-cards');
@@ -173,6 +207,7 @@
 
         window.openMemoListModal = function() {
             openFadeModal('memo-list-modal');
+            window.renderMemoToolTabs();
             window.renderMemoList();
         };
 
@@ -181,26 +216,18 @@
         };
 
         window.switchMemoTool = function(id) {
+            if (!getToolTabs().some((tab) => tab.id === id)) return;
             setCurrentMemoTool(id);
-            document.querySelectorAll('.memo-tool-tab').forEach((element) => {
-                element.classList.remove('font-bold', 'text-indigo-600', 'border-b-[3px]', 'border-indigo-600');
-                element.classList.add('font-medium', 'text-slate-400');
-            });
-            const activeButton = document.getElementById(`memotab-tool-${id}`);
-            activeButton.classList.remove('font-medium', 'text-slate-400');
-            activeButton.classList.add('font-bold', 'text-indigo-600', 'border-b-[3px]', 'border-indigo-600');
+            const levels = memoLevelsForTool(id);
+            if (!levels.includes(getCurrentMemoLevel())) setCurrentMemoLevel(levels[0] || 'basic');
+            window.renderMemoToolTabs();
             window.renderMemoList();
         };
 
         window.switchMemoLevel = function(id) {
+            if (!memoLevelsForTool(getCurrentMemoTool()).includes(id)) return;
             setCurrentMemoLevel(id);
-            document.querySelectorAll('.memo-level-tab').forEach((element) => {
-                element.classList.remove('text-indigo-600', 'bg-white', 'shadow-sm', 'font-bold');
-                element.classList.add('text-slate-500', 'font-medium');
-            });
-            const activeButton = document.getElementById(`memotab-level-${id}`);
-            activeButton.classList.remove('text-slate-500', 'font-medium');
-            activeButton.classList.add('text-indigo-600', 'bg-white', 'shadow-sm', 'font-bold');
+            window.renderMemoToolTabs();
             window.renderMemoList();
         };
 
@@ -214,6 +241,8 @@
             const container = document.getElementById('render-memo-list');
             if (!container) return;
 
+            ensureMemoToolState();
+            window.renderMemoToolTabs();
             const memoData = getMemoData();
             const toolData = getToolData();
             const currentTool = getCurrentMemoTool();
@@ -222,7 +251,7 @@
 
             container.innerHTML = '';
             filteredMemos.forEach((memo, index) => {
-                const card = toolData[currentTool][currentLevel].find((item) => item.id === memo.cardId);
+                const card = (toolData[currentTool]?.[currentLevel] || []).find((item) => item.id === memo.cardId);
                 const cardTitle = card ? (card.title || '없음') : '연결안됨';
                 const editButton = getIsEditMode()
                     ? `<button ${actionAttrs('openMemoEditModal', [memo.id], { stop: true })} class="text-slate-400 hover:text-indigo-600 p-1.5 rounded-md hover:bg-indigo-50"><i data-lucide="edit" class="w-4 h-4"></i></button>`
@@ -247,7 +276,7 @@
             document.getElementById('mem-content').value = memo.content;
             const cardSelect = document.getElementById('mem-cardId');
             cardSelect.innerHTML = `<option value="">연결 안함</option>`;
-            (getToolData()[getCurrentMemoTool()][getCurrentMemoLevel()] || []).forEach((card) => {
+            (getToolData()[getCurrentMemoTool()]?.[getCurrentMemoLevel()] || []).forEach((card) => {
                 const selected = memo.cardId === card.id ? 'selected' : '';
                 cardSelect.innerHTML += `<option value="${card.id}" ${selected}>${card.title}</option>`;
             });
@@ -323,7 +352,7 @@
             document.getElementById('mvm-title').textContent = memo.title;
             document.getElementById('mvm-date').textContent = memo.date;
 
-            const card = getToolData()[memo.toolId][memo.levelId].find((item) => item.id === memo.cardId);
+            const card = (getToolData()[memo.toolId]?.[memo.levelId] || []).find((item) => item.id === memo.cardId);
             const cardButton = document.getElementById('mvm-card');
             if (card) {
                 cardButton.classList.remove('hidden');
