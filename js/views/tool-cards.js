@@ -53,6 +53,54 @@
         const toolIds = () => getToolTabs().map((tab) => tab.id);
         const toolLabel = (toolId) => getToolTabs().find((tab) => tab.id === toolId)?.label || toolId;
         const levelsForTool = (toolId) => getToolTabs().find((tab) => tab.id === toolId)?.levels || levelIds;
+        const labelForLevel = (levelId) => levelLabels[levelId] || levelId;
+        const ensureToolLevelBucket = (toolId, levelId) => {
+            const toolData = getToolData();
+            if (!toolData[toolId]) toolData[toolId] = {};
+            if (!Array.isArray(toolData[toolId][levelId])) toolData[toolId][levelId] = [];
+            return toolData[toolId][levelId];
+        };
+        const findToolCardLocation = (cardId) => {
+            if (!cardId || cardId === 'new') return null;
+            const toolData = getToolData();
+            for (const tab of getToolTabs()) {
+                for (const levelId of (tab.levels || levelIds)) {
+                    const cards = toolData[tab.id]?.[levelId] || [];
+                    const index = cards.findIndex((card) => card.id === cardId);
+                    if (index > -1) return { toolId: tab.id, levelId, index, card: cards[index] };
+                }
+            }
+            return null;
+        };
+        const updateToolCardCategoryVisibility = (toolId) => {
+            const categoryWrapper = document.getElementById('tcm-category-wrapper');
+            if (!categoryWrapper) return;
+            if (toolId === 'design') categoryWrapper.classList.remove('hidden');
+            else categoryWrapper.classList.add('hidden');
+        };
+        const renderToolCardMoveLevelOptions = (toolId, selectedLevelId) => {
+            const levelSelect = document.getElementById('tcm-targetLevelId');
+            if (!levelSelect) return;
+            const levels = levelsForTool(toolId);
+            const nextLevelId = levels.includes(selectedLevelId) ? selectedLevelId : (levels[0] || 'basic');
+            levelSelect.innerHTML = levels.map((levelId) => `<option value="${levelId}">${labelForLevel(levelId)}</option>`).join('');
+            levelSelect.value = nextLevelId;
+        };
+        const renderToolCardMoveSelectors = (selectedToolId, selectedLevelId) => {
+            const toolSelect = document.getElementById('tcm-targetToolId');
+            if (!toolSelect) return;
+            const tabs = getToolTabs();
+            const nextToolId = tabs.some((tab) => tab.id === selectedToolId) ? selectedToolId : (tabs[0]?.id || '');
+            toolSelect.innerHTML = tabs.map((tab) => `<option value="${tab.id}">${tab.label}</option>`).join('');
+            toolSelect.value = nextToolId;
+            renderToolCardMoveLevelOptions(nextToolId, selectedLevelId);
+            updateToolCardCategoryVisibility(nextToolId);
+        };
+        const syncMemoLocationForCard = (cardId, nextToolId, nextLevelId) => {
+            setMemoData(getMemoData().map((memo) => (
+                memo.cardId === cardId ? { ...memo, toolId: nextToolId, levelId: nextLevelId } : memo
+            )));
+        };
         const makeToolId = (label) => {
             const base = String(label || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
             let id = base || `tool-${Date.now()}`;
@@ -68,6 +116,13 @@
             const levels = levelsForTool(currentToolId);
             if (!levels.includes(getCurrentToolLevel(currentToolId))) setCurrentToolLevel(currentToolId, levels[0] || 'basic');
             return currentToolId;
+        };
+
+        window.updateToolCardMoveLevels = function(toolId) {
+            const levelSelect = document.getElementById('tcm-targetLevelId');
+            const selectedLevelId = levelSelect?.value;
+            renderToolCardMoveLevelOptions(toolId, selectedLevelId);
+            updateToolCardCategoryVisibility(toolId);
         };
 
         window.renderToolShell = function() {
@@ -312,6 +367,9 @@
             document.getElementById('tcm-title').value = card.title;
             document.getElementById('tcm-desc').value = card.desc;
 
+            window.updateDesignFilterSelects?.();
+            renderToolCardMoveSelectors(toolId, levelId);
+
             const categoryWrapper = document.getElementById('tcm-category-wrapper');
             if (toolId === 'design') {
                 categoryWrapper.classList.remove('hidden');
@@ -337,9 +395,12 @@
             const toolId = document.getElementById('tcm-toolId').value;
             const levelId = document.getElementById('tcm-levelId').value;
             const id = document.getElementById('tcm-cardId').value;
+            const targetToolId = document.getElementById('tcm-targetToolId')?.value || toolId;
+            const targetLevelId = document.getElementById('tcm-targetLevelId')?.value || levelsForTool(targetToolId)[0] || levelId;
             const toolData = getToolData();
             if (!toolData[toolId]) toolData[toolId] = {};
             if (!Array.isArray(toolData[toolId][levelId])) toolData[toolId][levelId] = [];
+            ensureToolLevelBucket(targetToolId, targetLevelId);
 
             const links = [];
             document.querySelectorAll('.tcm-link-item').forEach((item) => {
@@ -355,11 +416,9 @@
                 if (text || url) buttons.push({ text, url });
             });
 
+            const existingLocation = findToolCardLocation(id);
             let isHidden = false;
-            if (id !== 'new') {
-                const existingCard = (toolData[toolId]?.[levelId] || []).find((card) => card.id === id);
-                if (existingCard) isHidden = existingCard.isHidden;
-            }
+            if (id !== 'new' && existingLocation?.card) isHidden = existingLocation.card.isHidden;
 
             const card = {
                 id: id === 'new' ? `card_${Date.now()}` : id,
@@ -367,20 +426,42 @@
                 badgeRight: document.getElementById('tcm-badgeRight').value.trim(),
                 title: document.getElementById('tcm-title').value.trim(),
                 desc: document.getElementById('tcm-desc').value.trim(),
-                category: toolId === 'design' ? document.getElementById('tcm-category').value.trim() : '',
+                category: targetToolId === 'design' ? document.getElementById('tcm-category').value.trim() : '',
                 isHidden,
                 links,
                 buttons
             };
 
-            if (id === 'new') toolData[toolId][levelId].push(card);
-            else {
-                const index = toolData[toolId][levelId].findIndex((item) => item.id === id);
-                if (index > -1) toolData[toolId][levelId][index] = card;
+            const targetCards = ensureToolLevelBucket(targetToolId, targetLevelId);
+            if (id === 'new') {
+                targetCards.push(card);
+                setCurrentToolId(targetToolId);
+                setCurrentToolLevel(targetToolId, targetLevelId);
+            } else {
+                const sourceLocation = existingLocation || {
+                    toolId,
+                    levelId,
+                    index: (toolData[toolId]?.[levelId] || []).findIndex((item) => item.id === id)
+                };
+                const sourceCards = toolData[sourceLocation.toolId]?.[sourceLocation.levelId] || [];
+                const isMoving = sourceLocation.toolId !== targetToolId || sourceLocation.levelId !== targetLevelId;
+
+                if (isMoving) {
+                    if (sourceLocation.index > -1) sourceCards.splice(sourceLocation.index, 1);
+                    targetCards.push(card);
+                    syncMemoLocationForCard(card.id, targetToolId, targetLevelId);
+                    setCurrentToolId(targetToolId);
+                    setCurrentToolLevel(targetToolId, targetLevelId);
+                } else if (sourceLocation.index > -1) {
+                    sourceCards[sourceLocation.index] = card;
+                } else {
+                    targetCards.push(card);
+                }
             }
 
             saveToCloud();
             window.renderAllToolCards();
+            window.renderMemoToolTabs?.();
             window.closeToolCardModal();
             showToast('저장됨');
         };

@@ -728,6 +728,16 @@
             <input type="hidden" id="tcm-toolId">
             <input type="hidden" id="tcm-levelId">
             <input type="hidden" id="tcm-cardId">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50/80 border border-slate-100 rounded-2xl">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1.5">소속 Tool 탭</label>
+                    <select id="tcm-targetToolId" data-change-action="updateToolCardMoveLevels" class="w-full border-2 border-slate-100 rounded-xl p-2.5 focus:border-figjam outline-none text-sm font-bold bg-white"></select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1.5">소속 레벨</label>
+                    <select id="tcm-targetLevelId" class="w-full border-2 border-slate-100 rounded-xl p-2.5 focus:border-figjam outline-none text-sm font-bold bg-white"></select>
+                </div>
+            </div>
             <div id="tcm-category-wrapper" class="hidden">
                 <label class="block text-xs font-bold text-slate-500 mb-1.5">필터 (디자인 탭)</label>
                 <select id="tcm-category" class="w-full border-2 border-slate-100 rounded-xl p-2.5 focus:border-figjam outline-none text-sm font-bold bg-slate-50"></select>
