@@ -12,6 +12,21 @@ window.UIUXA_NETLIFY_CONFIG = {
     endpoint: "/api/dashboard-state"
 };
 */
+/* 바꾸기 후 1차
+window.UIUXA_SUPABASE_CONFIG = {
+    enabled: true,
+    url: "https://krnudijkseuyftiawian.supabase.co",
+    publishableKey: "sb_publishable_Vz2cYx6f7DuIZg6Ut1-mEw_RRMVGGLQ",
+    table: "uiuxa_dashboard_state",
+    rowId: "shared_state"
+};
+
+window.UIUXA_NETLIFY_CONFIG = {
+    enabled: false,
+    endpoint: "/api/dashboard-state"
+};
+*/
+
 window.UIUXA_SUPABASE_CONFIG = {
     enabled: true,
     url: "https://krnudijkseuyftiawian.supabase.co",
