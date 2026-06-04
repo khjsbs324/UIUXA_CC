@@ -15,7 +15,7 @@ window.UIUXA_NETLIFY_CONFIG = {
 window.UIUXA_SUPABASE_CONFIG = {
     enabled: true,
     url: "https://krnudijkseuyftiawian.supabase.co",
-    publishableKey: "기존 값 그대로",
+    publishableKey: "sb_publishable_Vz2cYx6f7DuIZg6Ut1-mEw_RRMVGGLQ",
     table: "uiuxa_dashboard_state",
     rowId: "shared_state"
 };
